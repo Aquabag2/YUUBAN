@@ -1,0 +1,27 @@
+{
+  "name": "yuuban-festival",
+  "version": "1.0.0",
+  "description": "Aplicación web para el Festival Yuuban - Música, clases y actividades",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "server:dev": "cd server && npm run dev",
+    "client:dev": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "keywords": [
+    "festival",
+    "música",
+    "clases",
+    "concursos",
+    "yuuban"
+  ],
+  "author": "Festival Yuuban",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "workbox-webpack-plugin": "^7.3.0"
+  }
+}
