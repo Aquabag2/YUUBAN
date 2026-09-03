@@ -15,6 +15,7 @@ import EventPage from './pages/EventPage';
 import MyEventPanel from './pages/MyEventPanel';
 import TicketPage from './pages/TicketPage';
 import CheckIn from './pages/CheckIn';
+import ResetPassword from './pages/ResetPassword';
 
 // Root: Landing si no hay sesión, dashboard si sí hay
 const Root = () => {
@@ -73,6 +74,7 @@ function App() {
             <Route path="/ticket/:token"    element={<TicketPage />} />
             <Route path="/checkin/:slug"    element={<CheckIn />} />
             <Route path="/login"            element={<Login />} />
+            <Route path="/reset-password"  element={<ResetPassword />} />
 
             {/* ── Root: Landing o dashboard según sesión ── */}
             <Route path="/" element={<Root />} />
