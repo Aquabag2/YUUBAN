@@ -10,15 +10,20 @@ const ResetPassword = () => {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
   const [done, setDone]           = useState(false);
+  const [ready, setReady]         = useState(false); // sesión de recovery lista
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Supabase pone el token en el hash — lo detectamos y establecemos la sesión
+    // Supabase procesa el token del hash y emite PASSWORD_RECOVERY
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        // sesión lista para updateUser
-      }
+      if (event === 'PASSWORD_RECOVERY') setReady(true);
     });
+
+    // Si ya hay sesión de recovery activa (página recargada)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true);
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -41,6 +46,15 @@ const ResetPassword = () => {
     }
     setLoading(false);
   };
+
+  if (!ready) return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <div className="text-center">
+        <Loader2 size={32} className="mx-auto animate-spin text-violet-400" />
+        <p className="mt-3 text-sm text-white/40">Verificando enlace...</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-4 py-12">
