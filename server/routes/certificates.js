@@ -48,11 +48,12 @@ router.post('/certificates/templates', requireAuth, upload.single('image'), asyn
     .from('certificate-templates')
     .getPublicUrl(path);
 
-  const fields = req.body.fields ? JSON.parse(req.body.fields) : defaultFields();
+  const fields      = req.body.fields      ? JSON.parse(req.body.fields)      : defaultFields();
+  const is_platform = req.body.is_platform === 'true';
 
   const { data, error } = await sb
     .from('certificate_templates')
-    .insert({ name: req.body.name.trim(), image_url: publicUrl, fields, created_by: req.user.id })
+    .insert({ name: req.body.name.trim(), image_url: publicUrl, fields, is_platform, created_by: req.user.id })
     .select()
     .single();
 

@@ -20,7 +20,7 @@ const PREVIEW_DATA = {
   date:  '15 de agosto de 2025',
 };
 
-export default function CertificateEditor({ eventId, onSaved }) {
+export default function CertificateEditor({ eventId, onSaved, isPlatform = false }) {
   const [templates, setTemplates]   = useState([]);
   const [selected, setSelected]     = useState(null);   // template activo
   const [fields, setFields]         = useState(DEFAULT_FIELDS);
@@ -98,6 +98,7 @@ export default function CertificateEditor({ eventId, onSaved }) {
       form.append('image', file);
       form.append('name', templateName.trim());
       form.append('fields', JSON.stringify(DEFAULT_FIELDS));
+      form.append('is_platform', isPlatform ? 'true' : 'false');
       const { data } = await api.post('/certificates/templates', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });

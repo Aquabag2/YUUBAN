@@ -4,8 +4,9 @@ import {
   CheckCircle2, PauseCircle, Plus, DollarSign,
   Activity, BarChart3, X, ExternalLink, Trash2,
   Edit3, Mail, ToggleLeft, ToggleRight, Search,
-  Globe, Lock,
+  Globe, Lock, Award,
 } from 'lucide-react';
+import CertificateEditor from './CertificateEditor';
 import api from '../lib/api';
 
 const PLAN_BADGE = {
@@ -643,6 +644,19 @@ const SuperAdmin = () => {
           </div>
         </Modal>
       )}
+
+      {/* ── Templates oficiales de constancias ──────────────────── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-1 flex items-center gap-2">
+          <Award size={18} className="text-violet-600" />
+          <h2 className="font-semibold text-gray-900">Templates oficiales de constancias</h2>
+        </div>
+        <p className="mb-5 text-sm text-gray-500">
+          Los templates que subas aquí estarán disponibles para todos tus clientes.
+          Sube diseños con el branding de Yuuban y tus clientes los pueden usar directamente.
+        </p>
+        <CertificateEditor isPlatform />
+      </div>
 
     </div>
   );
