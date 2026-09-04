@@ -201,7 +201,7 @@ const TicketPage = () => {
               </div>
             </div>
 
-            {/* Botón descargar */}
+            {/* Botón descargar QR */}
             <button
               type="button"
               onClick={downloadQR}
@@ -209,6 +209,18 @@ const TicketPage = () => {
             >
               <Download size={15} /> Guardar QR
             </button>
+
+            {/* Botón constancia */}
+            {ticket.certificate_url && (
+              <a
+                href={`/api/certificates/download/${token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-all"
+              >
+                <Download size={15} /> Descargar constancia
+              </a>
+            )}
 
             <p className="text-center text-xs text-white/20">
               Guarda este link o captura de pantalla. No necesitas imprimirlo.

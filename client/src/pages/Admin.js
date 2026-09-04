@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, MessageSquare, Users, GraduationCap,
-  CalendarClock, Download, List, LayoutGrid, Plus, X, GitBranch, Trash2,
+  CalendarClock, Download, List, LayoutGrid, Plus, X, GitBranch, Trash2, Award,
 } from 'lucide-react';
 import api from '../lib/api';
 import { useWorkflow } from '../context/WorkflowContext';
 import WorkflowCard from '../components/WorkflowCard';
+import CertificateEditor from './CertificateEditor';
 
 const STATUS_COLORS = {
   'Abierto':    'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -437,6 +438,19 @@ const Admin = () => {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Constancias ───────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-1 flex items-center gap-2">
+          <Award size={18} className="text-violet-600" />
+          <h2 className="font-semibold text-gray-900">Constancias de participación</h2>
+        </div>
+        <p className="mb-5 text-sm text-gray-500">
+          Sube el diseño de tu constancia (PNG o PDF de Canva) y posiciona los campos con el editor.
+          Cuando actives las constancias, cada alumno podrá descargar la suya desde su ticket.
+        </p>
+        <CertificateEditor />
       </div>
 
     </div>
