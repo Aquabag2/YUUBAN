@@ -9,12 +9,14 @@ import { useAuth } from '../context/AuthContext';
 
 const TABS_BY_ROLE = {
   student: [
-    { to: '/dashboard', label: 'Dashboard',  icon: Home },
-    { to: '/cursos',    label: 'Cursos',     icon: BookOpen },
-    { to: '/estudiante',label: 'Mis Clases', icon: GraduationCap },
+    { to: '/dashboard',  label: 'Dashboard',  icon: Home },
+    { to: '/novedades',  label: 'Novedades',  icon: Megaphone },
+    { to: '/cursos',     label: 'Cursos',     icon: BookOpen },
+    { to: '/estudiante', label: 'Mis Clases', icon: GraduationCap },
   ],
   admin: [
     { to: '/dashboard',  label: 'Dashboard',  icon: Home },
+    { to: '/novedades',  label: 'Novedades',  icon: Megaphone },
     { to: '/cursos',     label: 'Cursos',     icon: BookOpen },
     { to: '/admin',      label: 'Admin',      icon: LayoutDashboard },
     { to: '/mi-evento',  label: 'Mi Evento',  icon: Megaphone },
@@ -22,6 +24,7 @@ const TABS_BY_ROLE = {
   ],
   super_admin: [
     { to: '/dashboard',  label: 'Dashboard',  icon: Home },
+    { to: '/novedades',  label: 'Novedades',  icon: Megaphone },
     { to: '/cursos',     label: 'Cursos',     icon: BookOpen },
     { to: '/admin',      label: 'Admin',      icon: LayoutDashboard },
     { to: '/mi-evento',  label: 'Mi Evento',  icon: Megaphone },

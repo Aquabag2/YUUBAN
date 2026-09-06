@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   LayoutDashboard, MessageSquare, Users, GraduationCap,
   CalendarClock, Download, List, LayoutGrid, Plus, X, GitBranch, Trash2, Award,
+  Megaphone, Trophy, Calendar, Star, Pin, Loader2,
 } from 'lucide-react';
 import api from '../lib/api';
 import { useWorkflow } from '../context/WorkflowContext';
@@ -453,8 +454,160 @@ const Admin = () => {
         <CertificateEditor />
       </div>
 
+      {/* ── Publicaciones del festival ─────────────────────────────────────── */}
+      <PostsSection />
+
     </div>
   );
 };
+
+const POST_TYPES = [
+  { key: 'announcement', label: 'Anuncio',   icon: Megaphone },
+  { key: 'schedule',     label: 'Horario',   icon: Calendar  },
+  { key: 'result',       label: 'Resultado', icon: Star      },
+  { key: 'winner',       label: 'Ganador',   icon: Trophy    },
+];
+
+const TYPE_STYLE = {
+  announcement: 'bg-blue-50 border-blue-200 text-blue-700',
+  schedule:     'bg-violet-50 border-violet-200 text-violet-700',
+  result:       'bg-amber-50 border-amber-200 text-amber-700',
+  winner:       'bg-emerald-50 border-emerald-200 text-emerald-700',
+};
+
+const EMPTY_POST = { title: '', content: '', type: 'announcement', is_pinned: false };
+
+function PostsSection() {
+  const [posts,     setPosts]     = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [showForm,  setShowForm]  = useState(false);
+  const [form,      setForm]      = useState(EMPTY_POST);
+  const [saving,    setSaving]    = useState(false);
+  const [eventSlug, setEventSlug] = useState(null);
+
+  useEffect(() => {
+    // Obtener el slug del primer evento del admin
+    api.get('/my-event').then(({ data }) => {
+      if (data?.slug) {
+        setEventSlug(data.slug);
+        return api.get(`/e/${data.slug}/posts`);
+      }
+    }).then(r => { if (r) setPosts(r.data ?? []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim() || !eventSlug) return;
+    setSaving(true);
+    try {
+      const { data } = await api.post(`/e/${eventSlug}/posts`, form);
+      setPosts(prev => [data, ...prev]);
+      setForm(EMPTY_POST);
+      setShowForm(false);
+    } catch {}
+    setSaving(false);
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await api.delete(`/posts/${id}`);
+      setPosts(prev => prev.filter(p => p.id !== id));
+    } catch {}
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Megaphone size={18} className="text-violet-600" />
+          <h2 className="font-semibold text-gray-900">Publicaciones del festival</h2>
+        </div>
+        {eventSlug && (
+          <button onClick={() => setShowForm(s => !s)}
+            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 transition-colors">
+            <Plus size={14} /> Nueva publicación
+          </button>
+        )}
+      </div>
+
+      {/* Formulario */}
+      {showForm && (
+        <form onSubmit={handleCreate} className="mb-5 rounded-xl border border-violet-100 bg-violet-50 p-4 space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            {POST_TYPES.map(t => (
+              <button key={t.key} type="button"
+                onClick={() => setForm(f => ({ ...f, type: t.key }))}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  form.type === t.key ? TYPE_STYLE[t.key] : 'bg-white border-gray-200 text-gray-500'
+                }`}>
+                <t.icon size={11} /> {t.label}
+              </button>
+            ))}
+          </div>
+          <input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="Título del anuncio"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-400" />
+          <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+            placeholder="Contenido (opcional)..."
+            rows={3}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-400 resize-none" />
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input type="checkbox" checked={form.is_pinned} onChange={e => setForm(f => ({ ...f, is_pinned: e.target.checked }))} />
+            <Pin size={13} /> Fijar publicación (aparece primero)
+          </label>
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving}
+              className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60 transition-colors">
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+              Publicar
+            </button>
+            <button type="button" onClick={() => setShowForm(false)}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Lista */}
+      {loading ? (
+        <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-gray-300" /></div>
+      ) : !eventSlug ? (
+        <p className="py-6 text-center text-sm text-gray-400">Necesitas tener un evento activo para publicar.</p>
+      ) : posts.length === 0 ? (
+        <p className="py-6 text-center text-sm text-gray-400">Sin publicaciones aún. Crea la primera.</p>
+      ) : (
+        <div className="space-y-3">
+          {posts.map(post => {
+            const TypeIcon = POST_TYPES.find(t => t.key === post.type)?.icon ?? Megaphone;
+            return (
+              <div key={post.id} className={`rounded-xl border p-4 ${post.is_pinned ? 'border-violet-200 bg-violet-50' : 'border-gray-100 bg-gray-50'}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${TYPE_STYLE[post.type]}`}>
+                        <TypeIcon size={10} />
+                        {POST_TYPES.find(t => t.key === post.type)?.label}
+                      </span>
+                      {post.is_pinned && <Pin size={11} className="text-violet-400" />}
+                    </div>
+                    <p className="font-medium text-gray-800 text-sm">{post.title}</p>
+                    {post.content && <p className="mt-1 text-xs text-gray-500 line-clamp-2">{post.content}</p>}
+                  </div>
+                  <button onClick={() => handleDelete(post.id)}
+                    className="text-gray-300 hover:text-red-400 transition-colors shrink-0">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Admin;

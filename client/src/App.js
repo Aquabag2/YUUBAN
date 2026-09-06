@@ -16,6 +16,7 @@ import MyEventPanel from './pages/MyEventPanel';
 import TicketPage from './pages/TicketPage';
 import CheckIn from './pages/CheckIn';
 import ResetPassword from './pages/ResetPassword';
+import Novedades from './pages/Novedades';
 
 // Root: Landing si no hay sesión, dashboard si sí hay
 const Root = () => {
@@ -86,6 +87,7 @@ function App() {
 
               {/* Cursos — todos los roles ven eventos disponibles */}
               <Route path="cursos"               element={<Cursos />} />
+              <Route path="novedades"            element={<Novedades />} />
 
               {/* Estudiante */}
               <Route path="estudiante" element={

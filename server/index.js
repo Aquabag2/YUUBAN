@@ -10,6 +10,7 @@ const adminRouter    = require('./routes/admin');
 const superRouter    = require('./routes/super');
 const paymentsRouter      = require('./routes/payments');
 const certificatesRouter  = require('./routes/certificates');
+const postsRouter         = require('./routes/posts');
 
 const app  = express();
 const PORT = process.env.PORT || 8000;
@@ -61,6 +62,7 @@ app.use('/api',         adminRouter);
 app.use('/api/super',   superRouter);
 app.use('/api',         paymentsRouter);
 app.use('/api',         certificatesRouter);
+app.use('/api',         postsRouter);
 
 // ── 404 y errores globales ────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
