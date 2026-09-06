@@ -53,17 +53,19 @@ const CheckIn = () => {
 
     try {
       const { data } = await api.post(`/ticket/${token}/checkin`);
-      setLastResult({ ok: true, name: data.name, already: false });
-      setAttendees((prev) =>
-        prev.map((a) => a.ticket_token === token ? { ...a, checked_in: true, checked_in_at: new Date().toISOString() } : a)
-      );
-    } catch (err) {
-      const found = attendees.find((a) => a.ticket_token === token);
-      if (found?.checked_in) {
-        setLastResult({ ok: true, name: found.name, already: true });
+      if (data.already) {
+        setLastResult({ ok: true, name: data.name, already: true });
       } else {
-        setLastResult({ ok: false, msg: 'Ticket no válido para este evento.' });
+        setLastResult({ ok: true, name: data.name, already: false });
+        setAttendees((prev) =>
+          prev.map((a) => a.ticket_token === token.split('|')[0]
+            ? { ...a, checked_in: true, checked_in_at: new Date().toISOString() } : a)
+        );
       }
+    } catch (err) {
+      const msg = err.response?.data?.detail || err.response?.data?.error || 'Ticket no válido para este evento.';
+      const isPago = err.response?.status === 402;
+      setLastResult({ ok: false, msg, isPago, name: err.response?.data?.name });
     } finally {
       setScanning(false);
       setTokenInput('');
@@ -242,15 +244,26 @@ const CheckIn = () => {
 
           {/* Resultado */}
           {lastResult && (
-            <div className={`mt-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold ${
-              lastResult.ok ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-400'
+            <div className={`mt-3 rounded-xl px-4 py-3 text-sm font-semibold ${
+              lastResult.ok
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : lastResult.isPago
+                  ? 'bg-amber-500/15 text-amber-300'
+                  : 'bg-rose-500/15 text-rose-400'
             }`}>
-              {lastResult.ok ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
-              {lastResult.ok
-                ? lastResult.already
-                  ? `${lastResult.name} — ya había ingresado antes`
-                  : `¡Bienvenido, ${lastResult.name}! ✓`
-                : lastResult.msg}
+              <div className="flex items-center gap-3">
+                {lastResult.ok ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                {lastResult.ok
+                  ? lastResult.already
+                    ? `${lastResult.name} — ya había ingresado antes`
+                    : `¡Bienvenido, ${lastResult.name}! ✓`
+                  : lastResult.msg}
+              </div>
+              {lastResult.isPago && (
+                <div className="mt-1 pl-7 text-xs text-amber-400/70">
+                  Debe completar el pago antes de ingresar al festival.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -342,6 +355,11 @@ const CheckIn = () => {
                       {a.instrument && (
                         <span className="hidden shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/40 sm:block">
                           {a.instrument}
+                        </span>
+                      )}
+                      {!a.paid && (
+                        <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-400">
+                          Sin pago
                         </span>
                       )}
                     </div>

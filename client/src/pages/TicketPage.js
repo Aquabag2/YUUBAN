@@ -19,7 +19,10 @@ const TicketPage = () => {
   const [notFound, setNotFound] = useState(false);
   const printRef = useRef(null);
 
+  // QR diario: incluye la fecha de hoy para que expire cada día
+  const today = new Date().toISOString().slice(0, 10);
   const ticketUrl = `${window.location.origin}/ticket/${token}`;
+  const dailyQrValue = `${token}|${today}`; // el check-in valida que la fecha sea hoy
 
   useEffect(() => {
     api.get(`/ticket/${token}`)
@@ -171,13 +174,16 @@ const TicketPage = () => {
             <div ref={printRef} className="flex flex-col items-center gap-4">
               <div className="rounded-2xl bg-white p-4 shadow-xl shadow-black/40">
                 <QRCodeSVG
-                  value={ticketUrl}
+                  value={dailyQrValue}
                   size={200}
                   level="H"
                   marginSize={0}
                   fgColor="#0f172a"
                 />
               </div>
+              <p className="text-xs text-white/20 text-center">
+                QR válido hoy · {today} · Se renueva cada día
+              </p>
               {isCheckedIn ? (
                 <div className="flex items-center gap-2 rounded-xl bg-violet-500/10 px-4 py-2.5 text-sm text-violet-300">
                   <CheckCircle2 size={16} />
