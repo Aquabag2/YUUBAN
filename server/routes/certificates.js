@@ -2,7 +2,7 @@ const router  = require('express').Router();
 const sb       = require('../lib/supabase');
 const PDFDoc   = require('pdfkit');
 const multer   = require('multer');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireSuperAdmin } = require('../middleware/auth');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -89,7 +89,7 @@ router.put('/certificates/templates/:id/fields', requireAuth, async (req, res) =
 
 // ── POST /api/certificates/event/:event_id/assign ─────────────────────────────
 // Asigna un template a un evento y activa constancias
-router.post('/certificates/event/:event_id/assign', requireAdmin, async (req, res) => {
+router.post('/certificates/event/:event_id/assign', requireAuth, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Supabase no configurado' });
   const { template_id } = req.body;
 
