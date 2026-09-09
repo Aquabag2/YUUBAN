@@ -38,7 +38,9 @@ export function AuthProvider({ children }) {
     });
 
     // Cambios de sesión posteriores (login/logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // No aplicar sesión si es recovery — ResetPassword la maneja directamente
+      if (event === 'PASSWORD_RECOVERY') return;
       applySession(session);
     });
 

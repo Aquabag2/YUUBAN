@@ -14,14 +14,16 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Supabase procesa el token del hash y emite PASSWORD_RECOVERY
+    // Detectar recovery directo desde el hash de la URL
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') || hash.includes('type=magiclink')) {
+      setReady(true);
+      return;
+    }
+
+    // Escuchar evento PASSWORD_RECOVERY de Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true);
-    });
-
-    // Si ya hay sesión de recovery activa (página recargada)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true);
     });
 
     return () => subscription.unsubscribe();
