@@ -17,31 +17,19 @@ router.get('/clients', requireSuperAdmin, async (_req, res) => {
   res.json(data ?? []);
 });
 
-// ── Crear cliente (invita por email) ──────────────────────────────────────────
+// ── Crear cliente ─────────────────────────────────────────────────────────────
 router.post('/clients', requireSuperAdmin, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
-  const { name, contact, email, plan, mrr, notes } = req.body;
+  const { name, contact, email, notes } = req.body;
   if (!name?.trim() || !email?.trim())
     return res.status(400).json({ error: 'Nombre y email son obligatorios' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return res.status(400).json({ error: 'Email no válido' });
 
-  const { data: invited, error: inviteErr } = await sb.auth.admin.inviteUserByEmail(
-    email.trim().toLowerCase(), { data: { role: 'admin' } }
-  );
-  if (inviteErr && !inviteErr.message.includes('already'))
-    return res.status(400).json({ error: inviteErr.message });
-
-  const userId = invited?.user?.id;
-  if (userId)
-    await sb.from('user_profiles').upsert({ id: userId, role: 'admin' }, { onConflict: 'id' });
-
   const { data: client, error: clientErr } = await sb.from('clients').insert({
-    admin_id: userId ?? null,
-    name: name.trim(), contact: contact?.trim() || null,
+    name: name.trim(),
+    contact: contact?.trim() || null,
     email: email.trim().toLowerCase(),
-    plan: plan ?? 'Básico',
-    mrr: mrr ? parseInt(mrr) : 0,
     notes: notes?.trim() || null,
   }).select().single();
 
@@ -49,7 +37,7 @@ router.post('/clients', requireSuperAdmin, async (req, res) => {
     console.error('[super/clients POST] clientErr:', clientErr);
     return res.status(500).json({ error: clientErr.message });
   }
-  res.status(201).json({ ...client, message: invited?.user ? `Invitación enviada a ${email}` : 'Cliente creado.' });
+  res.status(201).json({ ...client, message: 'Cliente creado.' });
 });
 
 // ── Editar cliente ─────────────────────────────────────────────────────────────

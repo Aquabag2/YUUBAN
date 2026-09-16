@@ -3,26 +3,18 @@ import {
   ShieldCheck, Users, Calendar, Zap,
   CheckCircle2, PauseCircle, Plus, DollarSign,
   Activity, BarChart3, X, ExternalLink, Trash2,
-  Edit3, Mail, ToggleLeft, ToggleRight, Search,
+  Edit3, ToggleLeft, ToggleRight, Search,
   Globe, Lock, Award,
 } from 'lucide-react';
 import CertificateEditor from './CertificateEditor';
 import api from '../lib/api';
-
-const PLAN_BADGE = {
-  Básico:     'border-gray-200 bg-gray-100 text-gray-600',
-  Pro:        'border-violet-200 bg-violet-50 text-violet-700',
-  Enterprise: 'border-amber-200 bg-amber-50 text-amber-700',
-};
-const PLAN_MRR = { Básico: 200, Pro: 600, Enterprise: 1200 };
-const PLANS    = ['Básico', 'Pro', 'Enterprise'];
 
 const STATUS_CONFIG = {
   Activo:  { icon: CheckCircle2, badge: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
   Pausado: { icon: PauseCircle,  badge: 'border-amber-200 bg-amber-50 text-amber-700' },
 };
 
-const EMPTY_FORM = { name: '', contact: '', email: '', plan: 'Básico', mrr: '200', notes: '' };
+const EMPTY_FORM = { name: '', contact: '', email: '', notes: '' };
 
 const inputCls =
   'w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:bg-gray-50 disabled:text-gray-400 transition-all';
@@ -76,23 +68,10 @@ const ClientForm = ({ initial = EMPTY_FORM, onSave, onCancel, saving, isEdit = f
           <input required type="email" value={form.email} onChange={(e) => set('email', e.target.value)}
             disabled={isEdit} placeholder="admin@festival.com" className={inputCls} />
         </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-gray-500">Plan</label>
-          <select value={form.plan}
-            onChange={(e) => { set('plan', e.target.value); set('mrr', PLAN_MRR[e.target.value]); }}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all">
-            {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-gray-500">MRR (USD)</label>
-          <input type="number" min="0" value={form.mrr} onChange={(e) => set('mrr', e.target.value)}
-            className={inputCls} />
-        </div>
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-medium text-gray-500">Notas internas</label>
           <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)}
-            rows={2} placeholder="Contexto, acuerdos especiales, etc."
+            rows={2} placeholder="Contexto, acuerdos, permisos especiales…"
             className={`${inputCls} resize-none`} />
         </div>
       </div>
@@ -100,16 +79,11 @@ const ClientForm = ({ initial = EMPTY_FORM, onSave, onCancel, saving, isEdit = f
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-600">{error}</div>
       )}
-      {!isEdit && (
-        <div className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-xs text-violet-700">
-          <Mail size={13} /> Se enviará una invitación al email para configurar su contraseña.
-        </div>
-      )}
 
       <div className="flex gap-2 pt-1">
         <button type="submit" disabled={saving}
           className="flex-1 rounded-xl bg-[#7C3AED] py-2.5 text-sm font-semibold text-white hover:bg-[#6D28D9] disabled:opacity-50 transition-colors shadow-sm shadow-violet-200">
-          {saving ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Crear e invitar'}
+          {saving ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Crear cliente'}
         </button>
         <button type="button" onClick={onCancel}
           className="rounded-xl border border-gray-200 px-4 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
@@ -218,9 +192,9 @@ const SuperAdmin = () => {
   );
 
   const METRIC_DEFS = [
-    { key: 'mrr',           label: 'MRR',             icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
     { key: 'activeClients', label: 'Clientes activos', icon: Users,      color: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-200'  },
     { key: 'totalEvents',   label: 'Eventos totales',  icon: Calendar,   color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-200'   },
+    { key: 'newThisMonth',  label: 'Nuevos este mes',  icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
     { key: 'platformUptime',label: 'Uptime',           icon: Activity,   color: 'text-sky-600',     bg: 'bg-sky-50',     border: 'border-sky-200'     },
   ];
 
@@ -346,30 +320,27 @@ const SuperAdmin = () => {
                     </div>
                   </div>
 
-                  {/* Plan + estado */}
+                  {/* Estado */}
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${PLAN_BADGE[client.plan] ?? PLAN_BADGE.Básico}`}>
-                      {client.plan}
-                    </span>
                     <span className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${st.badge}`}>
                       <st.icon size={11} /> {client.status}
                     </span>
                   </div>
 
-                  {/* MRR + Alta */}
+                  {/* Alta */}
                   <div className="flex flex-1 items-center gap-6">
-                    <div>
-                      <div className="text-xs text-gray-400">MRR</div>
-                      <div className="text-sm font-semibold text-emerald-600">
-                        {client.mrr > 0 ? `$${client.mrr}` : '—'}
-                      </div>
-                    </div>
                     <div className="hidden sm:block">
                       <div className="text-xs text-gray-400">Alta</div>
                       <div className="text-sm text-gray-600">
                         {new Date(client.created_at).toLocaleDateString('es-MX')}
                       </div>
                     </div>
+                    {client.notes && (
+                      <div className="min-w-0 flex-1 hidden md:block">
+                        <div className="text-xs text-gray-400">Notas</div>
+                        <div className="truncate text-sm text-gray-500">{client.notes}</div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Acciones */}
