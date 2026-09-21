@@ -56,6 +56,20 @@ if (process.env.NODE_ENV !== 'production') {
 // ── Rutas ─────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ ok: true, name: 'yuuban-server' }));
 
+// Diagnóstico: verifica que Supabase responde y el token JWT es válido
+app.get('/health/auth', async (req, res) => {
+  const sb = require('./lib/supabase');
+  if (!sb) return res.json({ ok: false, reason: 'Supabase no configurado' });
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.json({ ok: true, supabase: 'conectado', token: 'no enviado' });
+  const { data, error } = await sb.auth.getUser(token);
+  res.json({
+    ok: !error && !!data?.user,
+    user: data?.user ? { id: data.user.id, email: data.user.email } : null,
+    error: error?.message ?? null,
+  });
+});
+
 app.use('/api',         eventsRouter);
 app.use('/api/ticket',  ticketsRouter);
 app.use('/api',         adminRouter);
