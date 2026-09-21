@@ -17,6 +17,7 @@ import TicketPage from './pages/TicketPage';
 import CheckIn from './pages/CheckIn';
 import ResetPassword from './pages/ResetPassword';
 import Novedades from './pages/Novedades';
+import Dashboard from './pages/Dashboard';
 
 // Root: Landing si no hay sesión, dashboard si sí hay
 const Root = () => {
@@ -28,15 +29,6 @@ const Root = () => {
   );
   if (!user) return <Landing />;
   return <Navigate to="/dashboard" replace />;
-};
-
-// Dashboard por rol — primera pantalla al entrar
-const Dashboard = () => {
-  const { profile, loading } = useAuth();
-  if (loading) return null;
-  if (profile?.role === 'student')    return <Navigate to="/cursos"      replace />;
-  if (profile?.role === 'super_admin') return <Navigate to="/super"      replace />;
-  return <Navigate to="/admin" replace />;
 };
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
