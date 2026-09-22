@@ -56,17 +56,55 @@ if (process.env.NODE_ENV !== 'production') {
 // ── Rutas ─────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ ok: true, name: 'yuuban-server' }));
 
-// Diagnóstico: verifica que Supabase responde y el token JWT es válido
+// Diagnóstico completo de auth
 app.get('/health/auth', async (req, res) => {
   const sb = require('./lib/supabase');
-  if (!sb) return res.json({ ok: false, reason: 'Supabase no configurado' });
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.json({ ok: true, supabase: 'conectado', token: 'no enviado' });
-  const { data, error } = await sb.auth.getUser(token);
+
+  const info = {
+    supabase_url_set:     !!process.env.SUPABASE_URL,
+    service_key_set:      !!process.env.SUPABASE_SERVICE_KEY,
+    jwt_secret_set:       !!process.env.SUPABASE_JWT_SECRET,
+    supabase_url_preview: process.env.SUPABASE_URL?.slice(0, 40) ?? null,
+    supabase_client:      sb ? 'ok' : 'no inicializado',
+  };
+
+  if (!token) return res.json({ ...info, token: 'no enviado' });
+
+  // Decodifica sin verificar para ver si el payload es legible
+  let decoded = null;
+  try {
+    const jwt = require('jsonwebtoken');
+    decoded = jwt.decode(token);
+  } catch {}
+
+  // Intenta getUser con service key
+  let supabaseResult = null;
+  if (sb) {
+    const { data, error } = await sb.auth.getUser(token);
+    supabaseResult = { ok: !error && !!data?.user, error: error?.message ?? null, email: data?.user?.email ?? null };
+  }
+
+  // Intenta verificar con JWT secret
+  let jwtResult = null;
+  if (process.env.SUPABASE_JWT_SECRET) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const payload = jwt.verify(token, process.env.SUPABASE_JWT_SECRET, { algorithms: ['HS256'] });
+      jwtResult = { ok: true, sub: payload.sub, email: payload.email };
+    } catch (e) {
+      jwtResult = { ok: false, error: e.message };
+    }
+  }
+
   res.json({
-    ok: !error && !!data?.user,
-    user: data?.user ? { id: data.user.id, email: data.user.email } : null,
-    error: error?.message ?? null,
+    ...info,
+    token_prefix: token.slice(0, 30) + '...',
+    token_decoded_sub: decoded?.sub ?? null,
+    token_exp: decoded?.exp ? new Date(decoded.exp * 1000).toISOString() : null,
+    token_expired: decoded?.exp ? decoded.exp < Date.now() / 1000 : null,
+    supabase_getUser: supabaseResult,
+    jwt_secret_verify: jwtResult,
   });
 });
 
