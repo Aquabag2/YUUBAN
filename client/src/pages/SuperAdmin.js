@@ -4,7 +4,7 @@ import {
   CheckCircle2, PauseCircle, Plus, DollarSign,
   Activity, BarChart3, X, ExternalLink, Trash2,
   Edit3, ToggleLeft, ToggleRight, Search,
-  Globe, Lock, Award,
+  Globe, Lock, Award, UserCog, Save, RefreshCw,
 } from 'lucide-react';
 import CertificateEditor from './CertificateEditor';
 import api from '../lib/api';
@@ -112,12 +112,43 @@ const SuperAdmin = () => {
   const [saveMsg,    setSaveMsg]    = useState('');
   const [confirmDel, setConfirmDel] = useState(null);
 
+  // ── Gestión de usuarios ────────────────────────────────────────────────────
+  const [users,       setUsers]      = useState([]);
+  const [usersLoad,   setUsersLoad]  = useState(false);
+  const [usersSearch, setUsersSearch]= useState('');
+  const [roleEdits,   setRoleEdits]  = useState({}); // { [userId]: role }
+  const [savingRole,  setSavingRole] = useState({}); // { [userId]: bool }
+
   const loadAll = () => {
     api.get('/super/metrics').then((r) => setMetrics(r.data)).catch(() => {});
     api.get('/super/clients').then((r) => setClients(r.data ?? [])).catch(() => {});
     api.get('/super/events').then((r)  => setEvents(r.data ?? [])).catch(() => {});
   };
-  useEffect(() => { loadAll(); }, []);
+
+  const loadUsers = () => {
+    setUsersLoad(true);
+    api.get('/super/users').then((r) => {
+      setUsers(r.data ?? []);
+      const init = {};
+      (r.data ?? []).forEach(u => { init[u.id] = u.role; });
+      setRoleEdits(init);
+    }).catch(() => {}).finally(() => setUsersLoad(false));
+  };
+
+  useEffect(() => { loadAll(); loadUsers(); }, []);
+
+  const saveRole = async (userId) => {
+    setSavingRole(p => ({ ...p, [userId]: true }));
+    try {
+      await api.put(`/super/users/${userId}/role`, { role: roleEdits[userId] });
+      setUsers(p => p.map(u => u.id === userId ? { ...u, role: roleEdits[userId] } : u));
+      flash('Rol actualizado.');
+    } catch (err) {
+      flash(err.response?.data?.error ?? 'Error al actualizar rol.');
+    } finally {
+      setSavingRole(p => ({ ...p, [userId]: false }));
+    }
+  };
 
   // ── Gestionar evento de un cliente ─────────────────────────────────────────
   const openManage = (ev) => {
@@ -615,6 +646,108 @@ const SuperAdmin = () => {
           </div>
         </Modal>
       )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          Sección: Gestión de usuarios
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+            <UserCog size={15} className="text-violet-500" />
+            Usuarios y permisos
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+              {users.length}
+            </span>
+          </h3>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input value={usersSearch} onChange={e => setUsersSearch(e.target.value)}
+                placeholder="Buscar usuario…"
+                className="w-52 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-xs text-gray-700 placeholder-gray-400 outline-none focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-100 transition-all"/>
+            </div>
+            <button onClick={loadUsers} title="Recargar"
+              className="rounded-xl border border-gray-200 p-2 text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-colors">
+              <RefreshCw size={13} className={usersLoad ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {usersLoad && users.length === 0 ? (
+          <div className="space-y-2 p-6">
+            {[1,2,3].map(i => <div key={i} className="h-12 animate-pulse rounded-xl bg-gray-100"/>)}
+          </div>
+        ) : users.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <Users size={24} className="text-gray-200"/>
+            <div className="text-sm text-gray-400">Sin usuarios registrados.</div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100 text-left">
+                  <th className="px-6 py-3 text-xs font-medium text-gray-400">Usuario</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-400 hidden sm:table-cell">Alta</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-400">Rol</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-400"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {users
+                  .filter(u => {
+                    const q = usersSearch.toLowerCase();
+                    return !q || u.email?.toLowerCase().includes(q) || u.role?.toLowerCase().includes(q);
+                  })
+                  .map((u, i, arr) => {
+                    const changed = roleEdits[u.id] !== u.role;
+                    return (
+                      <tr key={u.id} className={`hover:bg-gray-50 transition-colors ${i < arr.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                        <td className="px-6 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-xs font-bold text-violet-700">
+                              {u.email?.charAt(0)?.toUpperCase() ?? '?'}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium text-gray-900 max-w-xs">{u.email ?? '—'}</div>
+                              <div className="text-xs text-gray-400">{u.id.slice(0, 8)}…</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-gray-500 hidden sm:table-cell">
+                          {new Date(u.created_at).toLocaleDateString('es-MX')}
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <select
+                            value={roleEdits[u.id] ?? u.role}
+                            onChange={e => setRoleEdits(p => ({ ...p, [u.id]: e.target.value }))}
+                            className={`rounded-xl border px-3 py-1.5 text-xs font-medium outline-none transition-all focus:ring-2 focus:ring-violet-100 ${
+                              roleEdits[u.id] === 'super_admin' ? 'border-amber-300 bg-amber-50 text-amber-700 focus:border-amber-400' :
+                              roleEdits[u.id] === 'admin'       ? 'border-violet-300 bg-violet-50 text-violet-700 focus:border-violet-400' :
+                                                                   'border-gray-200 bg-gray-50 text-gray-600 focus:border-violet-400'
+                            }`}>
+                            <option value="student">student</option>
+                            <option value="admin">admin</option>
+                            <option value="super_admin">super_admin</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          {changed && (
+                            <button onClick={() => saveRole(u.id)} disabled={savingRole[u.id]}
+                              className="flex items-center gap-1.5 rounded-xl bg-[#7C3AED] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6D28D9] disabled:opacity-50 transition-colors shadow-sm shadow-violet-200">
+                              {savingRole[u.id] ? '…' : <><Save size={11}/> Guardar</>}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                }
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* ── Templates oficiales de constancias ──────────────────── */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

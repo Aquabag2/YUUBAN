@@ -29,22 +29,24 @@ router.get('/event', async (_req, res) => {
   res.json(data);
 });
 
-// ── Evento del admin — GET / POST / PUT ───────────────────────────────────────
+// ── Eventos del admin — soporta múltiples eventos ─────────────────────────────
 router.get('/my-event', requireAuth, async (req, res) => {
-  if (!sb) return res.json({ ...MOCK.event, slug: 'demo-event' });
-  const { data } = await sb.from('events').select('*').eq('admin_id', req.user.id).maybeSingle();
-  res.json(data ?? null);
+  if (!sb) return res.json([{ ...MOCK.event, slug: 'demo-event' }]);
+  const { data } = await sb.from('events')
+    .select('*').eq('user_id', req.user.id)
+    .order('created_at', { ascending: false });
+  res.json(data ?? []);
 });
 
 router.post('/my-event', requireAuth, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
   const fields = pick(req.body, EVENT_FIELDS);
-  if (!fields.title) return res.status(400).json({ error: 'El título es obligatorio' });
+  if (!fields.title?.trim()) return res.status(400).json({ error: 'El título es obligatorio' });
   if (!fields.slug)
     fields.slug = fields.title.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').substring(0, 60);
   const { data, error } = await sb.from('events')
-    .insert({ ...fields, admin_id: req.user.id }).select().single();
+    .insert({ ...fields, user_id: req.user.id }).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.status(201).json(data);
 });
@@ -54,16 +56,24 @@ router.put('/my-event/:id', requireAuth, async (req, res) => {
   const fields = pick(req.body, EVENT_FIELDS);
   if (fields.price_cents !== undefined) fields.price_cents = parseInt(fields.price_cents) || 0;
   const { data, error } = await sb.from('events')
-    .update(fields).eq('id', req.params.id).eq('admin_id', req.user.id).select().single();
+    .update(fields).eq('id', req.params.id).eq('user_id', req.user.id).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+router.delete('/my-event/:id', requireAuth, async (req, res) => {
+  if (!sb) return res.json({ ok: true });
+  const { error } = await sb.from('events')
+    .delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // ── Inscritos del evento del admin ────────────────────────────────────────────
 router.get('/my-event/:id/registrations', requireAuth, async (req, res) => {
   if (!sb) return res.json([]);
   const { data: ev } = await sb.from('events')
-    .select('id').eq('id', req.params.id).eq('admin_id', req.user.id).single();
+    .select('id').eq('id', req.params.id).eq('user_id', req.user.id).single();
   if (!ev) return res.status(403).json({ error: 'No autorizado' });
   const { data, error } = await sb.from('registrations')
     .select('*').eq('event_id', req.params.id).order('created_at', { ascending: false });

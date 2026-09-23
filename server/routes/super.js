@@ -119,4 +119,38 @@ router.put('/events/:id', requireSuperAdmin, async (req, res) => {
   res.json(data);
 });
 
+// ── Gestión de usuarios (ver todos, cambiar rol) ───────────────────────────────
+router.get('/users', requireSuperAdmin, async (_req, res) => {
+  if (!sb) return res.json([]);
+  const { data, error } = await sb
+    .from('user_profiles')
+    .select('id, role, created_at')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+
+  // Enriquecer con email desde auth.users via admin API
+  const users = [];
+  for (const p of data ?? []) {
+    try {
+      const { data: u } = await sb.auth.admin.getUserById(p.id);
+      users.push({ ...p, email: u?.user?.email ?? null });
+    } catch {
+      users.push({ ...p, email: null });
+    }
+  }
+  res.json(users);
+});
+
+router.put('/users/:id/role', requireSuperAdmin, async (req, res) => {
+  if (!sb) return res.json({ ok: true });
+  const { role } = req.body;
+  const VALID_ROLES = ['student', 'admin', 'super_admin'];
+  if (!VALID_ROLES.includes(role))
+    return res.status(400).json({ error: 'Rol no válido' });
+  const { data, error } = await sb
+    .from('user_profiles').update({ role }).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
 module.exports = router;
