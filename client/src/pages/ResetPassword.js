@@ -14,19 +14,25 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Detectar recovery directo desde el hash de la URL
+    // Caso 1: hash de la URL tiene type=recovery (flujo normal)
     const hash = window.location.hash;
     if (hash.includes('type=recovery') || hash.includes('type=magiclink')) {
       setReady(true);
       return;
     }
 
-    // Escuchar evento PASSWORD_RECOVERY de Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setReady(true);
-    });
+    // Caso 2: ya hay sesión activa (Supabase mandó al dashboard en lugar de aquí)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) { setReady(true); return; }
 
-    return () => subscription.unsubscribe();
+      // Caso 3: esperar evento PASSWORD_RECOVERY
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+          setReady(true);
+        }
+      });
+      return () => subscription.unsubscribe();
+    });
   }, []);
 
   const handleSubmit = async (e) => {
