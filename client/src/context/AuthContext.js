@@ -9,13 +9,15 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId) => {
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    setProfile(data ?? null);
+  const fetchProfile = async (token) => {
+    try {
+      const { data } = await api.get('/profile', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setProfile(data ?? null);
+    } catch {
+      setProfile(null);
+    }
   };
 
   // Aplica la sesión y espera a que el perfil cargue antes de quitar loading
@@ -23,7 +25,7 @@ export function AuthProvider({ children }) {
     setUser(session?.user ?? null);
     if (session?.user) {
       api.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
-      await fetchProfile(session.user.id);
+      await fetchProfile(session.access_token);
     } else {
       delete api.defaults.headers.common['Authorization'];
       setProfile(null);

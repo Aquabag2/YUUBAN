@@ -116,6 +116,17 @@ app.use('/api',         paymentsRouter);
 app.use('/api',         certificatesRouter);
 app.use('/api',         postsRouter);
 
+// ── Perfil del usuario autenticado (usa service_role — evita llamadas RLS del cliente) ──
+const { requireAuth } = require('./middleware/auth');
+const sb = require('./lib/supabase');
+app.get('/api/profile', requireAuth, async (req, res) => {
+  if (!sb) return res.json({ id: req.user.id, role: 'admin' });
+  const { data, error } = await sb
+    .from('user_profiles').select('id, role, created_at').eq('id', req.user.id).single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data ?? { id: req.user.id, role: 'student' });
+});
+
 // ── 404 y errores globales ────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
@@ -125,8 +136,6 @@ app.use((err, _req, res, _next) => {
 });
 
 // ── Inicio ────────────────────────────────────────────────────────────────────
-const sb = require('./lib/supabase');
-
 app.listen(PORT, () => {
   console.log(`Yuuban server en puerto ${PORT} (${process.env.NODE_ENV || 'development'})`);
   if (!sb)                              console.log('⚠  Supabase no configurado — modo demo');
