@@ -12,16 +12,16 @@ const WORKFLOW_FIELDS = ['time', 'title', 'type', 'people', 'location'];
 router.get('/schedule', async (_req, res) => {
   if (!sb) return res.json(MOCK.schedule);
   const { data, error } = await sb.from('schedule_items').select('*').order('start_time');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) { console.error('[schedule] GET error:', error.message); return res.json([]); }
+  res.json(data ?? []);
 });
 
 // ── Flujo de trabajo ───────────────────────────────────────────────────────────
 router.get('/workflow', requireAuth, async (_req, res) => {
   if (!sb) return res.json(MOCK.workflow);
   const { data, error } = await sb.from('workflow_items').select('*').order('time');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) { console.error('[workflow] GET error:', error.message); return res.json([]); }
+  res.json(data ?? []);
 });
 
 router.post('/workflow', requireAuth, async (req, res) => {
@@ -55,8 +55,8 @@ router.delete('/workflow/:id', requireAuth, async (req, res) => {
 router.get('/teachers', requireAuth, async (_req, res) => {
   if (!sb) return res.json(MOCK.teachers);
   const { data, error } = await sb.from('teachers').select('*').order('name');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) { console.error('[teachers] GET error:', error.message); return res.json([]); }
+  res.json(data ?? []);
 });
 
 router.post('/teachers', requireAuth, async (req, res) => {
@@ -79,8 +79,8 @@ router.delete('/teachers/:id', requireAuth, async (req, res) => {
 router.get('/students', requireAuth, async (_req, res) => {
   if (!sb) return res.json(MOCK.students);
   const { data, error } = await sb.from('students').select('*').order('name');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) { console.error('[students] GET error:', error.message); return res.json([]); }
+  res.json(data ?? []);
 });
 
 router.post('/students', requireAuth, async (req, res) => {
@@ -106,16 +106,16 @@ router.get('/student-schedules', requireAuth, async (_req, res) => {
     .from('student_schedules')
     .select('id, time_slot, room, students(name), teachers(name)')
     .order('time_slot');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) { console.error('[student-schedules] GET error:', error.message); return res.json([]); }
+  res.json(data ?? []);
 });
 
 // ── Mensajes ───────────────────────────────────────────────────────────────────
 router.get('/messages', requireAuth, async (_req, res) => {
   if (!sb) return res.json(MOCK.messages);
   const { data, error } = await sb.from('messages').select('*').order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) { console.error('[messages] GET error:', error.message); return res.json([]); }
+  res.json(data ?? []);
 });
 
 router.delete('/messages/:id', requireAuth, async (req, res) => {
@@ -135,10 +135,10 @@ router.get('/stats', requireAuth, async (_req, res) => {
     sb.from('messages').select('*', { count: 'exact', head: true }).eq('status', 'Abierto'),
   ]);
   res.json({
-    events:   evR.count    ?? 0,
-    tickets:  tickR.count  ?? 0,
-    classes:  classR.count ?? 0,
-    messages: msgR.count   ?? 0,
+    events:   evR.error   ? 0 : (evR.count    ?? 0),
+    tickets:  tickR.error ? 0 : (tickR.count  ?? 0),
+    classes:  classR.error? 0 : (classR.count ?? 0),
+    messages: msgR.error  ? 0 : (msgR.count   ?? 0),
   });
 });
 

@@ -122,9 +122,15 @@ const sb = require('./lib/supabase');
 app.get('/api/profile', requireAuth, async (req, res) => {
   if (!sb) return res.json({ id: req.user.id, role: 'admin' });
   const { data, error } = await sb
-    .from('user_profiles').select('id, role, created_at').eq('id', req.user.id).single();
+    .from('user_profiles').select('id, role, created_at').eq('id', req.user.id).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data ?? { id: req.user.id, role: 'student' });
+  // Si no existe fila, crear perfil por defecto
+  if (!data) {
+    const { data: created } = await sb
+      .from('user_profiles').insert({ id: req.user.id, role: 'student' }).select().single();
+    return res.json(created ?? { id: req.user.id, role: 'student' });
+  }
+  res.json(data);
 });
 
 // ── 404 y errores globales ────────────────────────────────────────────────────
