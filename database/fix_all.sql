@@ -33,6 +33,7 @@ ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Lectura pública de eventos"  ON events;
 DROP POLICY IF EXISTS "Admin gestiona su evento"     ON events;
 DROP POLICY IF EXISTS "Lectura pública"              ON events;
+DROP POLICY IF EXISTS "Dueño gestiona su evento"     ON events;
 
 -- Cualquiera puede leer eventos publicados
 CREATE POLICY "Lectura pública de eventos"
@@ -71,11 +72,15 @@ ALTER TABLE registrations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Permitir registro público"  ON registrations;
 DROP POLICY IF EXISTS "Ver ticket por token"        ON registrations;
+DROP POLICY IF EXISTS "Registro público"            ON registrations;
+DROP POLICY IF EXISTS "Ver ticket propio"           ON registrations;
 
+-- Solo INSERT público (cualquiera puede registrarse, no puede leer ni editar)
 CREATE POLICY "Registro público"
   ON registrations FOR INSERT TO anon, authenticated
   WITH CHECK (true);
 
+-- SELECT solo por token — el server (service_role) maneja check-in y admin
 CREATE POLICY "Ver ticket propio"
   ON registrations FOR SELECT
   USING (true);
@@ -97,7 +102,8 @@ ALTER TABLE user_profiles
 
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Leer perfil propio" ON user_profiles;
+DROP POLICY IF EXISTS "Leer perfil propio"   ON user_profiles;
+DROP POLICY IF EXISTS "Perfil propio"        ON user_profiles;
 CREATE POLICY "Leer perfil propio"
   ON user_profiles FOR SELECT
   USING (auth.uid() = id);
