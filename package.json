@@ -9,7 +9,8 @@
     "client:dev": "cd client && npm start",
     "build": "cd client && npm install && npm run build",
     "start": "cd server && npm start",
-    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "deploy": "git push https://github.com/Aquabag2/YUUBAN.git main && git push git@github.com:Aquabag2/yuuban_server.git main"
   },
   "keywords": [
     "festival",
