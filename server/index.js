@@ -121,18 +121,22 @@ const { requireAuth } = require('./middleware/auth');
 const sb = require('./lib/supabase');
 app.get('/api/profile', requireAuth, async (req, res) => {
   try {
-    if (!sb) return res.json({ id: req.user.id, role: 'admin' });
+    if (!sb) {
+      console.log('[profile] supabase no configurado, devolviendo admin');
+      return res.json({ id: req.user.id, role: 'admin' });
+    }
+    console.log('[profile] querying user_id:', req.user.id);
     const { data, error } = await sb
       .from('user_profiles').select('id, role, created_at').eq('id', req.user.id).maybeSingle();
     if (error) {
-      console.error('[profile] SELECT error:', error.message);
-      // Devolver rol por defecto en lugar de 500
+      console.error('[profile] SELECT error:', error.message, error.code, error.details);
       return res.json({ id: req.user.id, role: 'student' });
     }
     if (!data) {
-      // Sin fila — devolver rol por defecto (el trigger debería haberla creado)
+      console.log('[profile] sin fila para user_id:', req.user.id);
       return res.json({ id: req.user.id, role: 'student' });
     }
+    console.log('[profile] rol encontrado:', data.role, 'para user_id:', req.user.id);
     res.json(data);
   } catch (err) {
     console.error('[profile] exception:', err.message);
