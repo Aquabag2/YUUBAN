@@ -116,21 +116,28 @@ app.use('/api',         paymentsRouter);
 app.use('/api',         certificatesRouter);
 app.use('/api',         postsRouter);
 
-// ── Perfil del usuario autenticado (usa service_role — evita llamadas RLS del cliente) ──
+// ── Perfil del usuario autenticado ────────────────────────────────────────────
 const { requireAuth } = require('./middleware/auth');
 const sb = require('./lib/supabase');
 app.get('/api/profile', requireAuth, async (req, res) => {
-  if (!sb) return res.json({ id: req.user.id, role: 'admin' });
-  const { data, error } = await sb
-    .from('user_profiles').select('id, role, created_at').eq('id', req.user.id).maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
-  // Si no existe fila, crear perfil por defecto
-  if (!data) {
-    const { data: created } = await sb
-      .from('user_profiles').insert({ id: req.user.id, role: 'student' }).select().single();
-    return res.json(created ?? { id: req.user.id, role: 'student' });
+  try {
+    if (!sb) return res.json({ id: req.user.id, role: 'admin' });
+    const { data, error } = await sb
+      .from('user_profiles').select('id, role, created_at').eq('id', req.user.id).maybeSingle();
+    if (error) {
+      console.error('[profile] SELECT error:', error.message);
+      // Devolver rol por defecto en lugar de 500
+      return res.json({ id: req.user.id, role: 'student' });
+    }
+    if (!data) {
+      // Sin fila — devolver rol por defecto (el trigger debería haberla creado)
+      return res.json({ id: req.user.id, role: 'student' });
+    }
+    res.json(data);
+  } catch (err) {
+    console.error('[profile] exception:', err.message);
+    res.json({ id: req.user.id, role: 'student' });
   }
-  res.json(data);
 });
 
 // ── 404 y errores globales ────────────────────────────────────────────────────

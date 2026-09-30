@@ -39,50 +39,65 @@ const getUser = async (token) => {
 };
 
 const requireAuth = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'No autenticado' });
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No autenticado' });
 
-  const user = await getUser(token);
-  if (!user) return res.status(401).json({ error: 'Sesión expirada — vuelve a iniciar sesión' });
-  req.user = user;
-  next();
+    const user = await getUser(token);
+    if (!user) return res.status(401).json({ error: 'Sesión expirada — vuelve a iniciar sesión' });
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('[requireAuth] exception:', err.message);
+    res.status(500).json({ error: 'Error de autenticación' });
+  }
 };
 
 const requireAdmin = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'No autenticado' });
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No autenticado' });
 
-  const user = await getUser(token);
-  if (!user) return res.status(401).json({ error: 'Sesión expirada — vuelve a iniciar sesión' });
+    const user = await getUser(token);
+    if (!user) return res.status(401).json({ error: 'Sesión expirada — vuelve a iniciar sesión' });
 
-  if (supabase) {
-    const { data: profile } = await supabase
-      .from('user_profiles').select('role').eq('id', user.id).single();
-    if (!['admin', 'super_admin'].includes(profile?.role))
-      return res.status(403).json({ error: 'Acceso denegado: se requiere rol admin' });
-    req.role = profile.role;
+    if (supabase) {
+      const { data: profile } = await supabase
+        .from('user_profiles').select('role').eq('id', user.id).maybeSingle();
+      if (!['admin', 'super_admin'].includes(profile?.role))
+        return res.status(403).json({ error: 'Acceso denegado: se requiere rol admin' });
+      req.role = profile.role;
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('[requireAdmin] exception:', err.message);
+    res.status(500).json({ error: 'Error de autenticación' });
   }
-
-  req.user = user;
-  next();
 };
 
 const requireSuperAdmin = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'No autenticado' });
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No autenticado' });
 
-  const user = await getUser(token);
-  if (!user) return res.status(401).json({ error: 'Sesión expirada — vuelve a iniciar sesión' });
+    const user = await getUser(token);
+    if (!user) return res.status(401).json({ error: 'Sesión expirada — vuelve a iniciar sesión' });
 
-  if (supabase) {
-    const { data: profile } = await supabase
-      .from('user_profiles').select('role').eq('id', user.id).single();
-    if (profile?.role !== 'super_admin')
-      return res.status(403).json({ error: 'Acceso denegado: se requiere super_admin' });
+    if (supabase) {
+      const { data: profile } = await supabase
+        .from('user_profiles').select('role').eq('id', user.id).maybeSingle();
+      if (profile?.role !== 'super_admin')
+        return res.status(403).json({ error: 'Acceso denegado: se requiere super_admin' });
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    console.error('[requireSuperAdmin] exception:', err.message);
+    res.status(500).json({ error: 'Error de autenticación' });
   }
-
-  req.user = user;
-  next();
 };
 
 module.exports = { requireAuth, requireAdmin, requireSuperAdmin };
