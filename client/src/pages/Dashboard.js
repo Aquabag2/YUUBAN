@@ -78,7 +78,7 @@ const Dashboard = () => {
 
     if (isAdmin) {
       loads.push(
-        api.get('/my-event').then(r => setEvent(r.data)).catch(() => {}),
+        api.get('/my-event').then(r => setEvent(Array.isArray(r.data) ? r.data[0] : r.data)).catch(() => {}),
         api.get('/stats').then(r => setStats(r.data)).catch(() => {}),
       );
     }

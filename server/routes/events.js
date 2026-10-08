@@ -103,11 +103,67 @@ router.get('/e/:slug/schedule', async (req, res) => {
   res.json(data ?? []);
 });
 
-// ── Inscripción pública (evento gratuito) ─────────────────────────────────────
+// ── Ticket types públicos ─────────────────────────────────────────────────────
+router.get('/e/:slug/ticket-types', async (req, res) => {
+  if (!sb) return res.json([]);
+  const { data: ev } = await sb.from('events').select('id').eq('slug', req.params.slug).eq('is_published', true).single();
+  if (!ev) return res.json([]);
+  const { data } = await sb.from('event_ticket_types')
+    .select('id, name, description, price_cents, capacity')
+    .eq('event_id', ev.id).eq('is_active', true)
+    .order('sort_order').order('price_cents');
+  res.json(data ?? []);
+});
+
+// ── Ticket types admin CRUD ───────────────────────────────────────────────────
+router.get('/my-event/:id/ticket-types', requireAuth, async (req, res) => {
+  if (!sb) return res.json([]);
+  const { data: ev } = await sb.from('events').select('id').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  if (!ev) return res.status(403).json({ error: 'No autorizado' });
+  const { data } = await sb.from('event_ticket_types').select('*').eq('event_id', req.params.id).order('sort_order');
+  res.json(data ?? []);
+});
+
+router.post('/my-event/:id/ticket-types', requireAuth, async (req, res) => {
+  if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
+  const { data: ev } = await sb.from('events').select('id').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  if (!ev) return res.status(403).json({ error: 'No autorizado' });
+  const { name, description, price_cents, capacity, sort_order } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
+  const { data, error } = await sb.from('event_ticket_types').insert({
+    event_id: parseInt(req.params.id), name: name.trim(),
+    description: description?.trim() || null,
+    price_cents: parseInt(price_cents || 0),
+    capacity: capacity ? parseInt(capacity) : null,
+    sort_order: parseInt(sort_order || 0),
+  }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
+});
+
+router.put('/ticket-types/:id', requireAuth, async (req, res) => {
+  if (!sb) return res.json({ ok: true });
+  const allowed = ['name', 'description', 'price_cents', 'capacity', 'sort_order', 'is_active'];
+  const updates = pick(req.body, allowed);
+  if (updates.price_cents !== undefined) updates.price_cents = parseInt(updates.price_cents || 0);
+  if (updates.capacity !== undefined) updates.capacity = updates.capacity ? parseInt(updates.capacity) : null;
+  const { data, error } = await sb.from('event_ticket_types').update(updates).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+router.delete('/ticket-types/:id', requireAuth, async (req, res) => {
+  if (!sb) return res.json({ ok: true });
+  const { error } = await sb.from('event_ticket_types').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+// ── Inscripción pública (gratuita o con ticket type gratuito) ─────────────────
 router.post('/e/:slug/register', async (req, res) => {
   if (!sb) return res.json({ ok: true, message: 'Demo', ticket_token: 'demo-token', ticket_url: '/ticket/demo-token' });
 
-  const { name, email, instrument, notes } = req.body;
+  const { name, email, instrument, notes, ticket_type_id, ticket_type_name } = req.body;
   if (!name?.trim() || !email?.trim())
     return res.status(400).json({ error: 'Nombre y correo son obligatorios' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -116,30 +172,83 @@ router.post('/e/:slug/register', async (req, res) => {
   const { data: ev } = await sb.from('events')
     .select('id, title, date, location, price_cents').eq('slug', req.params.slug).eq('is_published', true).single();
   if (!ev) return res.status(404).json({ error: 'Evento no encontrado' });
-  if (ev.price_cents > 0)
-    return res.status(400).json({ error: 'Este evento requiere pago. Usa el flujo de pago.' });
 
+  // Verificar precio efectivo (ticket type si aplica, o precio del evento)
+  let effectivePrice = ev.price_cents ?? 0;
+  if (ticket_type_id) {
+    const { data: tt } = await sb.from('event_ticket_types').select('price_cents').eq('id', ticket_type_id).single();
+    if (tt) effectivePrice = tt.price_cents;
+  }
+  if (effectivePrice > 0)
+    return res.status(400).json({ error: 'Este plan requiere pago. Usa el flujo de pago.' });
+
+  const cleanEmail = email.trim().toLowerCase();
   const { data: existing } = await sb.from('registrations')
-    .select('id').eq('event_id', ev.id).eq('email', email.trim().toLowerCase()).single();
+    .select('id').eq('event_id', ev.id).eq('email', cleanEmail).single();
   if (existing) return res.status(409).json({ error: 'Este correo ya está registrado' });
 
   const { data: reg, error } = await sb.from('registrations').insert({
-    event_id: ev.id, name: name.trim(),
-    email: email.trim().toLowerCase(),
-    instrument: instrument?.trim() || null,
-    notes: notes?.trim() || null,
+    event_id: ev.id, name: name.trim(), email: cleanEmail,
+    instrument: instrument?.trim() || null, notes: notes?.trim() || null,
+    ticket_type_id: ticket_type_id || null,
+    ticket_type_name: ticket_type_name || null,
   }).select('id, ticket_token').single();
 
   if (error) return res.status(500).json({ error: error.message });
 
   const ticketUrl = `/ticket/${reg.ticket_token}`;
   sendTicketEmail({
-    to: email.trim().toLowerCase(), name: name.trim(),
+    to: cleanEmail, name: name.trim(),
     eventTitle: ev.title ?? 'Evento', eventDate: ev.date, eventLocation: ev.location,
     ticketUrl, paid: false, priceCents: 0,
   }).catch(() => {});
 
   res.json({ ok: true, message: '¡Registro exitoso!', ticket_token: reg.ticket_token, ticket_url: ticketUrl });
+});
+
+// ── Concursos de un evento (admin) ───────────────────────────────────────────
+router.get('/my-event/:id/contests', requireAuth, async (req, res) => {
+  if (!sb) return res.json([]);
+  const { data: ev } = await sb.from('events').select('id').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  if (!ev) return res.status(403).json({ error: 'No autorizado' });
+  const { data, error } = await sb.from('contests')
+    .select('id, name, category, location, date, results_date, deadline, judge, price_cents')
+    .eq('event_id', req.params.id)
+    .order('date', { ascending: true });
+  if (error) return res.json([]);
+  res.json(data ?? []);
+});
+
+router.post('/my-event/:id/contests', requireAuth, async (req, res) => {
+  if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
+  const { data: ev } = await sb.from('events').select('id').eq('id', req.params.id).eq('user_id', req.user.id).single();
+  if (!ev) return res.status(403).json({ error: 'No autorizado' });
+  const { name, category, location, date, results_date, deadline, judge, price_cents } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'El nombre es requerido' });
+  const { data, error } = await sb.from('contests').insert({
+    name: name.trim(), category, location, date, results_date, deadline, judge,
+    price_cents: parseInt(price_cents || 0),
+    event_id: parseInt(req.params.id),
+  }).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json(data);
+});
+
+router.put('/contests/:id', requireAuth, async (req, res) => {
+  if (!sb) return res.json({ ok: true });
+  const allowed = ['name', 'category', 'location', 'date', 'results_date', 'deadline', 'judge', 'price_cents'];
+  const updates = pick(req.body, allowed);
+  if (updates.price_cents !== undefined) updates.price_cents = parseInt(updates.price_cents || 0);
+  const { data, error } = await sb.from('contests').update(updates).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+router.delete('/contests/:id', requireAuth, async (req, res) => {
+  if (!sb) return res.json({ ok: true });
+  const { error } = await sb.from('contests').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
 });
 
 // ── Lista de asistentes (staff autenticado) ───────────────────────────────────

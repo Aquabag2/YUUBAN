@@ -18,6 +18,9 @@ import CheckIn from './pages/CheckIn';
 import ResetPassword from './pages/ResetPassword';
 import Novedades from './pages/Novedades';
 import Dashboard from './pages/Dashboard';
+import MisConcursos from './pages/MisConcursos';
+import Mapa from './pages/Mapa';
+import Coordinacion from './pages/Coordinacion';
 
 // Root: Landing si no hay sesión, dashboard si sí hay
 const Root = () => {
@@ -87,6 +90,11 @@ function App() {
                   <Student />
                 </ProtectedRoute>
               } />
+              <Route path="mis-concursos" element={
+                <ProtectedRoute allowedRoles={['student', 'super_admin']}>
+                  <MisConcursos />
+                </ProtectedRoute>
+              } />
 
               {/* Admin y super_admin */}
               <Route path="admin" element={
@@ -107,6 +115,20 @@ function App() {
               <Route path="flujo" element={
                 <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
                   <Flow />
+                </ProtectedRoute>
+              } />
+
+              {/* Mapa del sistema — admin y super_admin */}
+              <Route path="mapa" element={
+                <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                  <Mapa />
+                </ProtectedRoute>
+              } />
+
+              {/* Coordinación de alumnos — admin y super_admin */}
+              <Route path="coordinacion" element={
+                <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                  <Coordinacion />
                 </ProtectedRoute>
               } />
 

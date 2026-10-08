@@ -488,9 +488,10 @@ function PostsSection() {
   useEffect(() => {
     // Obtener el slug del primer evento del admin
     api.get('/my-event').then(({ data }) => {
-      if (data?.slug) {
-        setEventSlug(data.slug);
-        return api.get(`/e/${data.slug}/posts`);
+      const ev = Array.isArray(data) ? data[0] : data;
+      if (ev?.slug) {
+        setEventSlug(ev.slug);
+        return api.get(`/e/${ev.slug}/posts`);
       }
     }).then(r => { if (r) setPosts(r.data ?? []); })
       .catch(() => {})

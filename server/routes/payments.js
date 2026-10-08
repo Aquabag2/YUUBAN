@@ -8,7 +8,7 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 // ── Crear sesión de pago Stripe Checkout ───────────────────────────────────────
 router.post('/e/:slug/checkout', async (req, res) => {
-  const { name, email, instrument, notes } = req.body;
+  const { name, email, instrument, notes, ticket_type_id, ticket_type_name } = req.body;
 
   if (!name?.trim() || !email?.trim())
     return res.status(400).json({ error: 'Nombre y correo son obligatorios' });
@@ -23,8 +23,16 @@ router.post('/e/:slug/checkout', async (req, res) => {
     .eq('slug', req.params.slug).eq('is_published', true).single();
 
   if (!ev) return res.status(404).json({ error: 'Evento no encontrado' });
-  if (!ev.price_cents || ev.price_cents <= 0)
-    return res.status(400).json({ error: 'Este evento es gratuito' });
+
+  // Precio efectivo: ticket type si aplica, si no el del evento
+  let effectivePrice = ev.price_cents ?? 0;
+  let productName = `Inscripción — ${ev.title}`;
+  if (ticket_type_id && sb) {
+    const { data: tt } = await sb.from('event_ticket_types').select('price_cents, name').eq('id', ticket_type_id).single();
+    if (tt) { effectivePrice = tt.price_cents; productName = `${tt.name} — ${ev.title}`; }
+  }
+  if (effectivePrice <= 0)
+    return res.status(400).json({ error: 'Este plan es gratuito, usa el registro directo.' });
 
   const cleanEmail = email.trim().toLowerCase();
 
@@ -36,7 +44,8 @@ router.post('/e/:slug/checkout', async (req, res) => {
   if (!stripe) {
     const { data: reg } = await sb.from('registrations').insert({
       event_id: ev.id, name: name.trim(), email: cleanEmail,
-      instrument: instrument?.trim() || null, notes: notes?.trim() || null, paid: false,
+      instrument: instrument?.trim() || null, notes: notes?.trim() || null,
+      paid: false, ticket_type_id: ticket_type_id || null, ticket_type_name: ticket_type_name || null,
     }).select('ticket_token').single();
     return res.json({ url: `/ticket/${reg?.ticket_token}?demo=1` });
   }
@@ -49,13 +58,15 @@ router.post('/e/:slug/checkout', async (req, res) => {
     customer_email: cleanEmail,
     line_items: [{ price_data: {
       currency: 'mxn',
-      unit_amount: ev.price_cents,
-      product_data: { name: `Inscripción — ${ev.title}` },
+      unit_amount: effectivePrice,
+      product_data: { name: productName },
     }, quantity: 1 }],
     metadata: {
       event_id: String(ev.id), event_slug: req.params.slug,
       attendee_name: name.trim(), attendee_email: cleanEmail,
       instrument: instrument?.trim() || '', notes: notes?.trim() || '',
+      ticket_type_id: ticket_type_id ? String(ticket_type_id) : '',
+      ticket_type_name: ticket_type_name || '',
     },
     success_url: `${origin}/e/${req.params.slug}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:  `${origin}/e/${req.params.slug}?payment=cancelled`,
@@ -78,7 +89,7 @@ router.post('/e/:slug/confirm-payment', async (req, res) => {
   if (session.payment_status !== 'paid')
     return res.status(402).json({ error: 'El pago no fue completado' });
 
-  const { event_id, attendee_name, attendee_email, instrument, notes } = session.metadata;
+  const { event_id, attendee_name, attendee_email, instrument, notes, ticket_type_id, ticket_type_name } = session.metadata;
 
   const { data: existing } = await sb.from('registrations')
     .select('ticket_token').eq('event_id', event_id).eq('email', attendee_email).single();
@@ -92,6 +103,8 @@ router.post('/e/:slug/confirm-payment', async (req, res) => {
     name: attendee_name, email: attendee_email,
     instrument: instrument || null, notes: notes || null,
     paid: true, stripe_session_id: session_id,
+    ticket_type_id: ticket_type_id ? parseInt(ticket_type_id) : null,
+    ticket_type_name: ticket_type_name || null,
   }).select('ticket_token').single();
 
   if (error) return res.status(500).json({ error: error.message });
