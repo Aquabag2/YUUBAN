@@ -1,13 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component } from 'react';
 import {
   LayoutDashboard, MessageSquare, Users, GraduationCap,
   CalendarClock, Download, List, LayoutGrid, Plus, X, GitBranch, Trash2, Award,
-  Megaphone, Trophy, Calendar, Star, Pin, Loader2,
+  Megaphone, Trophy, Calendar, Star, Pin, Loader2, AlertTriangle,
 } from 'lucide-react';
 import api from '../lib/api';
 import { useWorkflow } from '../context/WorkflowContext';
 import WorkflowCard from '../components/WorkflowCard';
 import CertificateEditor from './CertificateEditor';
+
+class SectionBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700 flex items-start gap-3">
+        <AlertTriangle size={16} className="shrink-0 mt-0.5"/>
+        <div><strong>Error en esta sección:</strong> {this.state.error?.message ?? 'Error desconocido'}</div>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 
 const STATUS_COLORS = {
   'Abierto':    'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -363,6 +377,7 @@ const Admin = () => {
       </div>
 
       {/* ── Flujo de trabajo ── */}
+      <SectionBoundary>
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
           <div>
@@ -441,21 +456,27 @@ const Admin = () => {
         </div>
       </div>
 
+      </SectionBoundary>
+
       {/* ── Constancias ───────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-1 flex items-center gap-2">
-          <Award size={18} className="text-violet-600" />
-          <h2 className="font-semibold text-gray-900">Constancias de participación</h2>
+      <SectionBoundary>
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-1 flex items-center gap-2">
+            <Award size={18} className="text-violet-600" />
+            <h2 className="font-semibold text-gray-900">Constancias de participación</h2>
+          </div>
+          <p className="mb-5 text-sm text-gray-500">
+            Sube el diseño de tu constancia (PNG o PDF de Canva) y posiciona los campos con el editor.
+            Cuando actives las constancias, cada alumno podrá descargar la suya desde su ticket.
+          </p>
+          <CertificateEditor />
         </div>
-        <p className="mb-5 text-sm text-gray-500">
-          Sube el diseño de tu constancia (PNG o PDF de Canva) y posiciona los campos con el editor.
-          Cuando actives las constancias, cada alumno podrá descargar la suya desde su ticket.
-        </p>
-        <CertificateEditor />
-      </div>
+      </SectionBoundary>
 
       {/* ── Publicaciones del festival ─────────────────────────────────────── */}
-      <PostsSection />
+      <SectionBoundary>
+        <PostsSection />
+      </SectionBoundary>
 
     </div>
   );
