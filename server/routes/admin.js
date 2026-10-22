@@ -2,6 +2,7 @@ const router = require('express').Router();
 const sb     = require('../lib/supabase');
 const MOCK   = require('../lib/mock');
 const { requireAuth } = require('../middleware/auth');
+const multer = require('multer');
 
 const pick = (obj, keys) =>
   Object.fromEntries(Object.entries(obj).filter(([k]) => keys.includes(k)));
@@ -66,6 +67,47 @@ router.post('/teachers', requireAuth, async (req, res) => {
   const { data, error } = await sb.from('teachers').insert({ name, role, schedule }).select().single();
   if (error) return res.status(500).json({ error: error.message });
   res.status(201).json(data);
+});
+
+// Foto del maestro (se guarda en Supabase Storage, bucket público "teacher-photos")
+const photoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 }, // 4 MB (límite de Vercel ~4.5 MB)
+  fileFilter: (_req, file, cb) => {
+    if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Solo se permiten fotos JPG, PNG o WebP'));
+  },
+});
+
+const PHOTO_BUCKET = 'teacher-photos';
+
+router.post('/teachers/:id/photo', requireAuth, (req, res, next) => {
+  photoUpload.single('photo')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  });
+}, async (req, res) => {
+  if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
+  if (!req.file) return res.status(400).json({ error: 'Foto requerida' });
+
+  const ext  = { 'image/png': 'png', 'image/webp': 'webp' }[req.file.mimetype] ?? 'jpg';
+  const path = `${req.params.id}/${Date.now()}.${ext}`;
+  const put  = () => sb.storage.from(PHOTO_BUCKET)
+    .upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+
+  let { error: upErr } = await put();
+  if (upErr && /bucket/i.test(upErr.message)) {
+    // Primer uso: crea el bucket y reintenta
+    await sb.storage.createBucket(PHOTO_BUCKET, { public: true }).catch(() => {});
+    ({ error: upErr } = await put());
+  }
+  if (upErr) return res.status(500).json({ error: upErr.message });
+
+  const { data: { publicUrl } } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+  const { data, error } = await sb.from('teachers')
+    .update({ photo_url: publicUrl }).eq('id', req.params.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
 router.delete('/teachers/:id', requireAuth, async (req, res) => {
