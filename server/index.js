@@ -15,6 +15,9 @@ const postsRouter         = require('./routes/posts');
 const app  = express();
 const PORT = process.env.PORT || 8000;
 
+// Detrás del proxy de Vercel/Railway: usa la IP real del cliente para el rate limit
+app.set('trust proxy', 1);
+
 // ── Seguridad ─────────────────────────────────────────────────────────────────
 
 // Cabeceras de seguridad HTTP (previene XSS, clickjacking, sniffing, etc.)
@@ -153,7 +156,10 @@ app.use((err, _req, res, _next) => {
 });
 
 // ── Inicio ────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+// En Vercel se importa como función serverless; local/Railway levanta el servidor
+module.exports = app;
+
+if (require.main === module) app.listen(PORT, () => {
   console.log(`Yuuban server en puerto ${PORT} (${process.env.NODE_ENV || 'development'})`);
   if (!sb)                              console.log('⚠  Supabase no configurado — modo demo');
   else                                  console.log('✓  Conectado a Supabase');
