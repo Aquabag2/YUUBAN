@@ -1,8 +1,9 @@
 import axios from 'axios';
 import supabase from './supabase';
 
+// El backend vive en el mismo dominio: Vercel lo sirve en /api y en local lo redirige setupProxy.js
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '/api',
+  baseURL: '/api',
 });
 
 // Adjunta el token fresco en cada petición
