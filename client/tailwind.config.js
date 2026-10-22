@@ -6,6 +6,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ── Landing pública (selva + clarinete viejo) ──────────────
+        'yb-bg':      '#0e130f',
+        'yb-raised':  '#172019',
+        'yb-text':    '#ece6d4',
+        'yb-muted':   '#a8ab98',
+        'yb-line':    '#2c3a2f',
+        'yb-helecho': '#b9dc8f',
+        'yb-selva':   '#2f5a3a',
+        'yb-laton':   '#d1a95a',
+        'yb-madera':  '#6b4630',
         // ── Paleta oficial Yuuban ─────────────────────────────────────
         // Fondo principal de la app
         'yn-bg':      '#07080F',
@@ -71,6 +81,8 @@ module.exports = {
       fontFamily: {
         'sans': ['Inter', 'system-ui', 'sans-serif'],
         'display': ['Poppins', 'system-ui', 'sans-serif'],
+        'yb-serif': ['"Instrument Serif"', 'Georgia', 'serif'],
+        'yb-sans': ['"Hanken Grotesk"', 'Helvetica Neue', 'Arial', 'sans-serif'],
         'mono': ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       animation: {
