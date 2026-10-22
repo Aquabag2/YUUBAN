@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Music2, Lock, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import supabase from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 const ResetPassword = () => {
   const [password, setPassword]   = useState('');
@@ -10,30 +11,8 @@ const ResetPassword = () => {
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
   const [done, setDone]           = useState(false);
-  const [ready, setReady]         = useState(false); // sesión de recovery lista
+  const { user, loading: authLoading, finishRecovery } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // Caso 1: hash de la URL tiene type=recovery (flujo normal)
-    const hash = window.location.hash;
-    if (hash.includes('type=recovery') || hash.includes('type=magiclink')) {
-      setReady(true);
-      return;
-    }
-
-    // Caso 2: ya hay sesión activa (Supabase mandó al dashboard en lugar de aquí)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) { setReady(true); return; }
-
-      // Caso 3: esperar evento PASSWORD_RECOVERY
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
-          setReady(true);
-        }
-      });
-      return () => subscription.unsubscribe();
-    });
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,16 +29,34 @@ const ResetPassword = () => {
         : 'Error al cambiar la contraseña. El enlace puede haber expirado.');
     } else {
       setDone(true);
-      setTimeout(() => navigate('/login'), 3000);
+      finishRecovery();
+      setTimeout(() => navigate('/dashboard', { replace: true }), 2500);
     }
     setLoading(false);
   };
 
-  if (!ready) return (
+  if (authLoading) return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="text-center">
         <Loader2 size={32} className="mx-auto animate-spin text-violet-400" />
         <p className="mt-3 text-sm text-white/40">Verificando enlace...</p>
+      </div>
+    </div>
+  );
+
+  // Sin sesión: el enlace expiró, ya se usó o se abrió en otro navegador
+  if (!user) return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-4">
+      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-8 text-center shadow-2xl backdrop-blur-sm">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/20">
+          <AlertCircle size={32} className="text-rose-400" />
+        </div>
+        <h2 className="mt-5 text-xl font-bold text-white">Enlace inválido o expirado</h2>
+        <p className="mt-2 text-sm text-white/50">Solicita un nuevo enlace para restablecer tu contraseña.</p>
+        <Link to="/login"
+          className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/25 hover:from-violet-500 hover:to-indigo-500 transition-all">
+          Volver al inicio de sesión
+        </Link>
       </div>
     </div>
   );
@@ -84,7 +81,7 @@ const ResetPassword = () => {
               <CheckCircle size={32} className="text-emerald-400" />
             </div>
             <h2 className="mt-5 text-xl font-bold text-white">¡Contraseña actualizada!</h2>
-            <p className="mt-2 text-sm text-white/50">Redirigiendo al inicio de sesión...</p>
+            <p className="mt-2 text-sm text-white/50">Entrando a tu cuenta...</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
