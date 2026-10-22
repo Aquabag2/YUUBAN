@@ -2,9 +2,9 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
-  Music2, LayoutDashboard, Users, ShieldCheck, LogOut,
+  LayoutDashboard, Users, ShieldCheck, LogOut,
   GraduationCap, Megaphone, BookOpen, Home, ChevronLeft,
-  ChevronRight, Calendar, Award, Menu, X, Lock, Trophy, Map, UserCheck,
+  ChevronRight, Calendar, Menu, X, Trophy, Map, UserCheck,
 } from 'lucide-react';
 
 // ── Navegación por rol ────────────────────────────────────────────────────────
@@ -55,12 +55,6 @@ const ROLE_LABELS = {
   admin:       'Administrador',
   super_admin: 'Super Admin',
 };
-const ROLE_COLORS = {
-  student:     'bg-emerald-100 text-emerald-700',
-  admin:       'bg-violet-100 text-violet-700',
-  super_admin: 'bg-amber-100 text-amber-700',
-};
-
 // ── Nombre de la página actual ─────────────────────────────────────────────────
 const PAGE_NAMES = {
   '/dashboard':  'Dashboard',
@@ -80,47 +74,40 @@ const PAGE_NAMES = {
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 const Sidebar = ({ collapsed, onToggle, onClose, mobile }) => {
   const { user, profile, signOut } = useAuth();
-  const role    = profile?.role ?? 'admin';
-  const items   = NAV[role] ?? NAV.admin;
-  const initials = user?.email?.charAt(0).toUpperCase() ?? '?';
+  const role      = profile?.role ?? 'admin';
+  const items     = NAV[role] ?? NAV.admin;
+  const initials  = user?.email?.charAt(0).toUpperCase() ?? '?';
   const roleLabel = ROLE_LABELS[role] ?? role;
-  const roleBadge = ROLE_COLORS[role] ?? ROLE_COLORS.admin;
+  const wide      = !collapsed || mobile;
 
   return (
-    <aside className={`
-      flex flex-col h-full bg-white border-r border-gray-200
-      ${collapsed && !mobile ? 'w-16' : 'w-60'}
-      transition-all duration-200
-    `}>
+    <aside className={`flex h-full flex-col border-r border-yb-rule bg-yb-paper font-yb-sans ${collapsed && !mobile ? 'w-16' : 'w-60'} transition-all duration-200`}>
 
-      {/* Logo */}
-      <div className={`flex items-center gap-3 px-4 py-4 border-b border-gray-100 shrink-0 ${collapsed && !mobile ? 'justify-center px-0' : ''}`}>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#7C3AED] shadow-md shadow-violet-200">
-          <Music2 size={17} className="text-white" />
-        </div>
-        {(!collapsed || mobile) && (
+      {/* Marca */}
+      <div className={`flex h-[68px] shrink-0 items-center gap-3 px-5 ${!wide ? 'justify-center px-0' : ''}`}>
+        {wide ? (
           <div className="min-w-0">
-            <div className="text-sm font-bold tracking-tight text-gray-900">Yuuban</div>
-            <div className="text-[10px] text-gray-400 font-medium">Festival Platform</div>
+            <div className="font-yb-serif text-[26px] leading-none tracking-tight text-yb-ink">Yuuban</div>
+            <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-yb-ink-muted">Panel de gestión</div>
           </div>
+        ) : (
+          <span className="font-yb-serif text-2xl text-yb-ink">Y</span>
         )}
         {mobile && (
-          <button onClick={onClose} className="ml-auto rounded-lg p-1 text-gray-400 hover:bg-gray-100">
+          <button onClick={onClose} aria-label="Cerrar menú" className="ml-auto p-1 text-yb-ink-muted hover:text-yb-ink">
             <X size={16} />
           </button>
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+      {/* Navegación */}
+      <nav className="flex-1 overflow-y-auto px-3 pb-3">
         {items.map((item, i) => {
           if (item.section) {
-            if (collapsed && !mobile) return null;
+            if (!wide) return <div key={i} className="mx-3 my-3 h-px bg-yb-rule" />;
             return (
-              <div key={i} className="px-3 pt-4 pb-1">
-                <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-                  {item.section}
-                </div>
+              <div key={i} className="px-3 pb-1.5 pt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-yb-ink-muted">
+                {item.section}
               </div>
             );
           }
@@ -128,66 +115,50 @@ const Sidebar = ({ collapsed, onToggle, onClose, mobile }) => {
           return (
             <NavLink key={item.to} to={item.to}
               onClick={mobile ? onClose : undefined}
-              title={collapsed && !mobile ? item.label : undefined}
+              title={!wide ? item.label : undefined}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150
-                ${collapsed && !mobile ? 'justify-center px-0 mx-1' : ''}
+                `group relative flex items-center gap-3 rounded-[3px] px-3 py-2 text-[14px] transition-colors duration-150
+                ${!wide ? 'justify-center px-0' : ''}
                 ${isActive
-                  ? item.accent
-                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                    : 'bg-[#7C3AED] text-white shadow-sm shadow-violet-200'
-                  : item.accent
-                    ? 'text-amber-600 hover:bg-amber-50'
-                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-                }`
+                  ? 'bg-white font-semibold text-yb-ink shadow-[0_0_0_1px_#e3e1d8]'
+                  : 'text-yb-ink-muted hover:bg-white/60 hover:text-yb-ink'}`
               }
             >
-              <Icon size={16} className="shrink-0" />
-              {(!collapsed || mobile) && <span className="truncate">{item.label}</span>}
+              {({ isActive }) => (
+                <>
+                  <Icon size={16} strokeWidth={isActive ? 2 : 1.6} className={`shrink-0 ${isActive ? 'text-yb-forest' : ''}`} />
+                  {wide && <span className="truncate">{item.label}</span>}
+                </>
+              )}
             </NavLink>
           );
         })}
       </nav>
 
-      {/* User + seguridad + cerrar sesión */}
-      <div className="shrink-0 border-t border-gray-100 p-2 space-y-1">
-
-        {/* Seguridad — solo visible expanded */}
-        {(!collapsed || mobile) && (
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 font-medium">
-            <Lock size={12} className="shrink-0" />
-            Sesión cifrada TLS
-          </div>
-        )}
-
-        {/* Info usuario */}
-        {(!collapsed || mobile) && (
-          <div className="px-3 py-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#7C3AED] text-xs font-bold text-white">
-                {initials}
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-xs font-medium text-gray-700">{user?.email}</div>
-                <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleBadge}`}>
-                  {roleLabel}
-                </span>
-              </div>
+      {/* Usuario */}
+      <div className="shrink-0 border-t border-yb-rule p-3">
+        {wide && (
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yb-ink font-yb-serif text-sm text-yb-paper">
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-xs font-medium text-yb-ink">{user?.email}</div>
+              <div className="text-[11px] text-yb-ink-muted">{roleLabel}</div>
             </div>
           </div>
         )}
 
         <button onClick={signOut}
-          title={collapsed && !mobile ? 'Cerrar sesión' : undefined}
-          className={`flex items-center gap-2.5 w-full rounded-xl px-3 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors ${collapsed && !mobile ? 'justify-center' : ''}`}>
-          <LogOut size={15} className="shrink-0" />
-          {(!collapsed || mobile) && 'Cerrar sesión'}
+          title={!wide ? 'Cerrar sesión' : undefined}
+          className={`mt-1 flex w-full items-center gap-2.5 rounded-[3px] px-3 py-2 text-sm text-yb-ink-muted transition-colors hover:bg-white/60 hover:text-yb-ink ${!wide ? 'justify-center' : ''}`}>
+          <LogOut size={15} strokeWidth={1.6} className="shrink-0" />
+          {wide && 'Cerrar sesión'}
         </button>
 
-        {/* Toggle colapsar — solo desktop */}
         {!mobile && (
           <button onClick={onToggle}
-            className={`flex items-center gap-2 w-full rounded-xl px-3 py-2 text-xs text-gray-400 hover:bg-gray-100 transition-colors ${collapsed ? 'justify-center' : ''}`}>
+            className={`flex w-full items-center gap-2 rounded-[3px] px-3 py-2 text-xs text-yb-ink-muted transition-colors hover:text-yb-ink ${collapsed ? 'justify-center' : ''}`}>
             {collapsed ? <ChevronRight size={14} /> : <><ChevronLeft size={14} /><span>Colapsar</span></>}
           </button>
         )}
@@ -199,78 +170,52 @@ const Sidebar = ({ collapsed, onToggle, onClose, mobile }) => {
 // ── Layout principal ───────────────────────────────────────────────────────────
 const Layout = () => {
   const location = useLocation();
-  const [collapsed,    setCollapsed]    = useState(false);
-  const [mobileOpen,   setMobileOpen]   = useState(false);
+  const [collapsed,  setCollapsed]  = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Cerrar menú móvil al cambiar ruta
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
   const pageName = PAGE_NAMES[location.pathname] ?? '';
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FB]">
+    <div className="flex min-h-screen bg-yb-paper font-yb-sans text-yb-ink">
 
-      {/* ── Sidebar desktop (fixed) ── */}
-      <div className={`
-        hidden md:flex fixed inset-y-0 left-0 z-40 flex-col
-        ${collapsed ? 'w-16' : 'w-60'}
-        transition-all duration-200 shadow-sm
-      `}>
+      {/* Sidebar escritorio */}
+      <div className={`fixed inset-y-0 left-0 z-40 hidden flex-col md:flex ${collapsed ? 'w-16' : 'w-60'} animate-yb-fade transition-all duration-200 motion-reduce:animate-none`}>
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(p => !p)} />
       </div>
 
-      {/* ── Sidebar móvil (overlay) ── */}
+      {/* Sidebar móvil */}
       {mobileOpen && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
-            onClick={() => setMobileOpen(false)} />
-          <div className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col shadow-2xl md:hidden">
+          <div className="fixed inset-0 z-40 bg-yb-ink/30 md:hidden" onClick={() => setMobileOpen(false)} />
+          <div className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col shadow-xl md:hidden">
             <Sidebar mobile onClose={() => setMobileOpen(false)} />
           </div>
         </>
       )}
 
-      {/* ── Contenido principal ── */}
-      <div className={`
-        flex-1 flex flex-col min-w-0
-        ${collapsed ? 'md:ml-16' : 'md:ml-60'}
-        transition-all duration-200
-      `}>
+      {/* Contenido */}
+      <div className={`flex min-w-0 flex-1 flex-col ${collapsed ? 'md:ml-16' : 'md:ml-60'} transition-all duration-200`}>
 
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur-md">
-          <div className="flex items-center gap-4 px-4 py-3 sm:px-6">
-
-            {/* Hamburger móvil */}
-            <button onClick={() => setMobileOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 md:hidden transition-colors">
+        <header className="sticky top-0 z-30 border-b border-yb-rule bg-yb-paper/90 backdrop-blur">
+          <div className="flex h-[68px] items-center gap-4 px-4 sm:px-8">
+            <button onClick={() => setMobileOpen(true)} aria-label="Abrir menú"
+              className="flex h-9 w-9 items-center justify-center rounded-[3px] border border-yb-rule text-yb-ink-muted hover:text-yb-ink md:hidden">
               <Menu size={17} />
             </button>
-
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs text-gray-400 hidden sm:block">Yuuban</span>
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              <span className="hidden text-yb-ink-muted sm:block">Yuuban</span>
               {pageName && <>
-                <span className="text-xs text-gray-300 hidden sm:block">/</span>
-                <span className="text-sm font-semibold text-gray-700 truncate">{pageName}</span>
+                <span className="hidden text-yb-rule sm:block">/</span>
+                <span className="truncate font-semibold text-yb-ink">{pageName}</span>
               </>}
             </div>
-
-            {/* Espaciador */}
-            <div className="flex-1" />
-
-            {/* Seguridad badge — desktop */}
-            <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-              <Lock size={11} />
-              Seguro
-            </div>
-
           </div>
         </header>
 
-        {/* Página */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-6xl">
+        <main className="flex-1 px-4 py-8 sm:px-8 lg:px-12 lg:py-12">
+          <div key={location.pathname} className="mx-auto max-w-6xl">
             <Outlet />
           </div>
         </main>

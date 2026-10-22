@@ -1,288 +1,242 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
-  Plus, Calendar, Users, Award, Megaphone,
-  ArrowRight, Globe, Lock, QrCode, ShieldCheck,
-  TrendingUp, CheckCircle2, FileText,
+  Plus, Calendar, Award, Megaphone, ArrowRight, ArrowUpRight,
+  QrCode, ShieldCheck, BookOpen, GraduationCap, Trophy,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 
-// ── Tarjeta de acción rápida ──────────────────────────────────────────────────
-const QuickAction = ({ icon: Icon, label, desc, to, onClick, color = 'violet', accent }) => {
-  const colors = {
-    violet: 'bg-violet-50 text-violet-600 border-violet-200 hover:bg-violet-100',
-    emerald:'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100',
-    amber:  'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100',
-    sky:    'bg-sky-50 text-sky-600 border-sky-200 hover:bg-sky-100',
-  };
-  const cls = `flex items-start gap-4 rounded-2xl border p-5 transition-all cursor-pointer group ${colors[color]}`;
+/*
+ * Dashboard — estilo sobrio: papel, tinta y un solo acento verde (yb-forest).
+ * Animación de entrada: cada bloque sube y aparece en cascada (clase animate-yb-rise
+ * + retraso), los números cuentan desde 0 y el filete bajo el saludo se dibuja.
+ * Todo se desactiva con "reducir movimiento" del sistema.
+ */
+
+// ── Entrada en cascada ────────────────────────────────────────────────────────
+const Rise = ({ i = 0, className = '', children, as: Tag = 'div' }) => (
+  <Tag className={`animate-yb-rise motion-reduce:animate-none ${className}`} style={{ animationDelay: `${120 + i * 90}ms` }}>
+    {children}
+  </Tag>
+);
+
+// ── Número que cuenta desde 0 ─────────────────────────────────────────────────
+const CountUp = ({ value }) => {
+  const target = typeof value === 'number' ? value : null;
+  const [n, setN] = useState(target === null ? value : 0);
+  useEffect(() => {
+    if (target === null) { setN(value); return; }
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || target === 0) { setN(target); return; }
+    let raf; const t0 = performance.now(); const dur = 900;
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / dur);
+      setN(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, value]);
+  return <>{n}</>;
+};
+
+// ── Dato (fila de cifras) ─────────────────────────────────────────────────────
+const Figure = ({ label, value, note }) => (
+  <div className="px-0 py-5 sm:px-6 sm:first:pl-0">
+    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-yb-ink-muted">{label}</div>
+    <div className="mt-2 font-yb-serif text-[40px] leading-none text-yb-ink">
+      {value === null
+        ? <span className="inline-block h-9 w-14 animate-pulse bg-yb-rule" />
+        : <CountUp value={value} />}
+    </div>
+    {note && <div className="mt-2 text-xs text-yb-ink-muted">{note}</div>}
+  </div>
+);
+
+// ── Acción (fila de lista) ────────────────────────────────────────────────────
+const Action = ({ icon: Icon, label, desc, to, onClick, external }) => {
+  const cls = 'group flex w-full items-center gap-5 border-b border-yb-rule py-5 text-left transition-colors hover:bg-white/70 sm:px-2';
+  const Arrow = external ? ArrowUpRight : ArrowRight;
   const inner = (
     <>
-      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm border ${
-        color === 'violet' ? 'border-violet-200' :
-        color === 'emerald'? 'border-emerald-200' :
-        color === 'amber'  ? 'border-amber-200' : 'border-sky-200'
-      }`}>
-        <Icon size={20} />
-      </div>
+      <Icon size={18} strokeWidth={1.6} className="shrink-0 text-yb-ink-muted transition-colors group-hover:text-yb-forest" />
       <div className="min-w-0 flex-1">
-        <div className="font-semibold text-gray-900 text-sm">{label}</div>
-        <div className="mt-0.5 text-xs text-gray-500 leading-relaxed">{desc}</div>
+        <div className="text-[15px] font-semibold text-yb-ink">{label}</div>
+        <div className="mt-0.5 text-sm text-yb-ink-muted">{desc}</div>
       </div>
-      <ArrowRight size={16} className="shrink-0 text-gray-300 group-hover:text-gray-500 mt-1 transition-colors" />
+      <Arrow size={16} className="shrink-0 text-yb-ink-muted transition-transform group-hover:translate-x-1 group-hover:text-yb-ink" />
     </>
   );
   if (to) return <Link to={to} className={cls}>{inner}</Link>;
-  return <div className={cls} onClick={onClick}>{inner}</div>;
+  return <button type="button" onClick={onClick} className={cls}>{inner}</button>;
 };
 
-// ── Stat card ─────────────────────────────────────────────────────────────────
-const Stat = ({ label, value, icon: Icon, color }) => {
-  const c = {
-    violet: { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-600', icon: 'text-violet-400' },
-    emerald:{ bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-600', icon: 'text-emerald-400' },
-    amber:  { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-600', icon: 'text-amber-400' },
-    sky:    { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-600', icon: 'text-sky-400' },
-  }[color] ?? {};
-  return (
-    <div className={`rounded-2xl border ${c.border} ${c.bg} px-5 py-4`}>
-      <div className="flex items-center justify-between">
-        <div className="text-xs font-medium text-gray-500">{label}</div>
-        <Icon size={15} className={c.icon} />
-      </div>
-      <div className={`mt-2 text-2xl font-bold ${c.text}`}>
-        {value ?? <span className="inline-block h-7 w-12 animate-pulse rounded-lg bg-white/60" />}
-      </div>
-    </div>
-  );
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
 };
+const today = () => {
+  const s = new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+const Header = ({ title, subtitle, action }) => (
+  <header className="mb-10">
+    <Rise i={0}>
+      <p className="text-xs font-medium text-yb-ink-muted">{today()}</p>
+    </Rise>
+    <div className="mt-3 flex flex-wrap items-end justify-between gap-6">
+      <Rise i={1}>
+        <h1 className="font-yb-serif text-[44px] leading-[1.02] tracking-[-0.01em] text-yb-ink sm:text-[52px]">{title}</h1>
+        <p className="mt-2 text-[15px] text-yb-ink-muted">{subtitle}</p>
+      </Rise>
+      {action && <Rise i={2}>{action}</Rise>}
+    </div>
+    <div className="mt-8 h-px origin-left animate-yb-line bg-yb-ink/80 motion-reduce:animate-none" />
+  </header>
+);
+
+const SectionTitle = ({ children }) => (
+  <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-yb-ink-muted">{children}</h2>
+);
 
 // ── Dashboard principal ───────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, profile } = useAuth();
-  const navigate  = useNavigate();
-  const role      = profile?.role ?? 'admin';
+  const role         = profile?.role ?? 'admin';
   const isSuperAdmin = role === 'super_admin';
-  const isAdmin   = role === 'admin' || isSuperAdmin;
+  const isAdmin      = role === 'admin' || isSuperAdmin;
 
-  const [event,    setEvent]    = useState(null);
-  const [stats,    setStats]    = useState(null);
-  const [clients,  setClients]  = useState(0);
-  const [loading,  setLoading]  = useState(true);
+  const [event,   setEvent]   = useState(null);
+  const [stats,   setStats]   = useState(null);
+  const [clients, setClients] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   const firstName = user?.email?.split('@')[0] ?? 'Admin';
 
   useEffect(() => {
     const loads = [];
-
     if (isAdmin) {
       loads.push(
         api.get('/my-event').then(r => setEvent(Array.isArray(r.data) ? r.data[0] : r.data)).catch(() => {}),
         api.get('/stats').then(r => setStats(r.data)).catch(() => {}),
       );
     }
-
     if (isSuperAdmin) {
-      loads.push(
-        api.get('/super/clients').then(r => setClients(r.data?.length ?? 0)).catch(() => {}),
-      );
+      loads.push(api.get('/super/clients').then(r => setClients(r.data?.length ?? 0)).catch(() => {}));
     }
-
     Promise.allSettled(loads).finally(() => setLoading(false));
   }, [isAdmin, isSuperAdmin]);
 
   // ── Vista estudiante ───────────────────────────────────────────────────────
   if (role === 'student') {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Hola, {firstName} 👋</h1>
-          <p className="mt-1 text-sm text-gray-500">Bienvenido a Yuuban — tu plataforma de festivales.</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <QuickAction icon={Calendar} label="Ver Cursos" desc="Explora los eventos y festivales disponibles" to="/cursos" color="violet" />
-          <QuickAction icon={Megaphone} label="Novedades" desc="Anuncios, horarios y resultados de tu festival" to="/novedades" color="emerald" />
-          <QuickAction icon={Award} label="Mis Constancias" desc="Descarga tus diplomas y certificados" to="/estudiante" color="amber" />
-        </div>
+      <div className="font-yb-sans">
+        <Header title={`${greeting()}, ${firstName}`} subtitle="Bienvenido a Yuuban." />
+        <Rise i={3}>
+          <SectionTitle>Accesos</SectionTitle>
+          <div className="border-t border-yb-rule">
+            <Action icon={BookOpen}      label="Cursos"          desc="Explora los eventos y festivales disponibles" to="/cursos" />
+            <Action icon={GraduationCap} label="Mis clases"      desc="Tus inscripciones y horarios"                 to="/estudiante" />
+            <Action icon={Trophy}        label="Mis concursos"   desc="Participaciones y resultados"                 to="/mis-concursos" />
+            <Action icon={Megaphone}     label="Novedades"       desc="Anuncios, horarios y resultados de tu festival" to="/novedades" />
+          </div>
+        </Rise>
       </div>
     );
   }
 
   // ── Vista admin / super_admin ──────────────────────────────────────────────
-  return (
-    <div className="space-y-6">
+  const inscritos = loading ? null : (typeof stats?.totalStudents === 'number' ? stats.totalStudents : (event ? '—' : 0));
+  const estado    = loading ? null : (event?.is_published ? 'Publicado' : event ? 'Borrador' : 'Ninguno');
 
-      {/* Header de bienvenida */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isSuperAdmin ? `Panel Yuuban` : `Hola, ${firstName}`}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {isSuperAdmin
-              ? 'Control total de la plataforma'
-              : event ? `Gestionando: ${event.title}` : 'Crea tu primer evento para empezar'}
-          </p>
-        </div>
-        {isAdmin && !loading && !event && (
+  return (
+    <div className="font-yb-sans">
+      <Header
+        title={isSuperAdmin ? 'Panel Yuuban' : `${greeting()}, ${firstName}`}
+        subtitle={isSuperAdmin
+          ? 'Control general de la plataforma.'
+          : event ? `Gestionando ${event.title}.` : 'Aún no tienes un evento. Empieza creando el primero.'}
+        action={isAdmin && !loading && !event && (
           <Link to="/mi-evento"
-            className="flex items-center gap-2 rounded-xl bg-[#7C3AED] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#6D28D9] transition-colors shadow-sm shadow-violet-200">
+            className="inline-flex items-center gap-2 rounded-[3px] bg-yb-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-yb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yb-forest">
             <Plus size={15} /> Crear mi evento
           </Link>
         )}
-      </div>
+      />
 
-      {/* Stats */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {isSuperAdmin && (
-          <Stat label="Clientes" value={loading ? null : clients} icon={Users} color="violet" />
-        )}
-        <Stat
-          label="Inscritos"
-          value={loading ? null : (stats?.totalStudents ?? (event ? '—' : '0'))}
-          icon={Users} color={isSuperAdmin ? 'emerald' : 'violet'}
-        />
-        <Stat
-          label="Evento activo"
-          value={loading ? null : (event?.is_published ? 'Sí' : event ? 'Borrador' : 'Ninguno')}
-          icon={Globe} color="amber"
-        />
-        <Stat
-          label="Seguridad"
-          value="TLS ✓"
-          icon={ShieldCheck} color="sky"
-        />
-      </div>
-
-      {/* Acciones rápidas */}
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">Acciones rápidas</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-
-          {/* Evento */}
-          {event ? (
-            <QuickAction
-              icon={Calendar}
-              label="Gestionar mi evento"
-              desc={`${event.title} · ${event.is_published ? 'Publicado' : 'Borrador'}`}
-              to="/mi-evento"
-              color="violet"
-            />
-          ) : (
-            <QuickAction
-              icon={Plus}
-              label="Crear evento"
-              desc="Configura tu festival, clases o concurso"
-              to="/mi-evento"
-              color="violet"
-            />
-          )}
-
-          {/* Constancias */}
-          <QuickAction
-            icon={Award}
-            label="Constancias"
-            desc="Diseña y genera diplomas para tus participantes"
-            to="/admin"
-            color="amber"
-          />
-
-          {/* Novedades */}
-          <QuickAction
-            icon={Megaphone}
-            label="Publicar novedad"
-            desc="Anuncia horarios, resultados o ganadores"
-            to="/novedades"
-            color="emerald"
-          />
-
-          {/* Check-in */}
-          {event?.slug && (
-            <QuickAction
-              icon={QrCode}
-              label="Check-in del evento"
-              desc="Escanea entradas QR en la puerta"
-              onClick={() => window.open(`/checkin/${event.slug}`, '_blank')}
-              color="sky"
-            />
-          )}
-
-          {/* Super Admin */}
-          {isSuperAdmin && (
-            <QuickAction
-              icon={ShieldCheck}
-              label="Panel de plataforma"
-              desc="Gestiona clientes, eventos y configuración global"
-              to="/super"
-              color="amber"
-            />
-          )}
+      {/* Cifras */}
+      <Rise i={3} className="mb-12">
+        <SectionTitle>Resumen</SectionTitle>
+        <div className="grid grid-cols-1 divide-y divide-yb-rule border-y border-yb-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {isSuperAdmin && <Figure label="Clientes" value={loading ? null : clients} />}
+          <Figure label="Inscritos" value={inscritos} note={event ? 'En tu evento actual' : 'Sin evento activo'} />
+          <Figure label="Evento" value={estado} note={event?.date || (event ? 'Sin fecha' : '—')} />
+          {!isSuperAdmin && <Figure label="Check-in" value={event?.slug ? 'Listo' : '—'} note={event?.slug ? 'Escáner disponible' : 'Disponible al crear evento'} />}
         </div>
-      </div>
+      </Rise>
 
-      {/* Estado del evento */}
-      {event && (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-              <Calendar size={15} className="text-violet-500" /> Mi evento
-            </h3>
-            <Link to="/mi-evento"
-              className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-              Ver detalles <ArrowRight size={11} />
-            </Link>
+      <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr]">
+        {/* Acciones */}
+        <Rise i={4}>
+          <SectionTitle>Acciones</SectionTitle>
+          <div className="border-t border-yb-rule">
+            {event
+              ? <Action icon={Calendar} label="Gestionar mi evento" desc={`${event.title} · ${event.is_published ? 'Publicado' : 'Borrador'}`} to="/mi-evento" />
+              : <Action icon={Plus}     label="Crear evento"        desc="Configura tu festival, clases o concurso" to="/mi-evento" />}
+            <Action icon={Award}     label="Constancias"       desc="Diseña y genera diplomas para tus participantes" to="/admin" />
+            <Action icon={Megaphone} label="Publicar novedad"  desc="Anuncia horarios, resultados o ganadores"        to="/novedades" />
+            {event?.slug && (
+              <Action icon={QrCode} label="Check-in del evento" desc="Escanea entradas QR en la puerta" external
+                onClick={() => window.open(`/checkin/${event.slug}`, '_blank')} />
+            )}
+            {isSuperAdmin && (
+              <Action icon={ShieldCheck} label="Panel de plataforma" desc="Clientes, eventos y configuración global" to="/super" />
+            )}
           </div>
-          <div className="px-6 py-5">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-                event.is_published ? 'bg-emerald-50' : 'bg-gray-100'
-              }`}>
-                {event.is_published ? <Globe size={20} className="text-emerald-600" /> : <Lock size={20} className="text-gray-400" />}
+        </Rise>
+
+        {/* Mi evento */}
+        <Rise i={5}>
+          <SectionTitle>Mi evento</SectionTitle>
+          {event ? (
+            <div className="border-t border-yb-rule pt-6">
+              <div className="flex items-center gap-2 text-xs font-medium text-yb-ink-muted">
+                <span className={`h-1.5 w-1.5 rounded-full ${event.is_published ? 'bg-yb-forest' : 'bg-yb-ink-muted'}`} />
+                {event.is_published ? 'Publicado' : 'Borrador'}
               </div>
-              <div className="min-w-0">
-                <div className="font-semibold text-gray-900">{event.title}</div>
-                <div className="mt-0.5 text-sm text-gray-500">
-                  {event.location && `${event.location} · `}
-                  {event.date || 'Sin fecha'}
-                </div>
-              </div>
-              <div className="ml-auto flex items-center gap-2">
-                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                  event.is_published
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-gray-200 bg-gray-50 text-gray-500'
-                }`}>
-                  {event.is_published ? '● Publicado' : '○ Borrador'}
-                </span>
+              <h3 className="mt-3 font-yb-serif text-3xl leading-tight text-yb-ink">{event.title}</h3>
+              <p className="mt-2 text-sm text-yb-ink-muted">
+                {[event.location, event.date || 'Sin fecha'].filter(Boolean).join(' · ')}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-5 text-sm font-semibold">
+                <Link to="/mi-evento" className="text-yb-ink underline decoration-1 underline-offset-4 hover:text-yb-forest">Ver detalles</Link>
                 {event.slug && event.is_published && (
                   <a href={`/e/${event.slug}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 rounded-xl border border-gray-200 px-3 py-1 text-xs text-gray-500 hover:bg-gray-50 transition-colors">
-                    Ver página
+                    className="inline-flex items-center gap-1 text-yb-ink underline decoration-1 underline-offset-4 hover:text-yb-forest">
+                    Página pública <ArrowUpRight size={13} />
                   </a>
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Seguridad — info para el admin */}
-      {isAdmin && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
-          <div className="flex items-start gap-3">
-            <ShieldCheck size={18} className="shrink-0 text-emerald-600 mt-0.5" />
-            <div>
-              <div className="text-sm font-semibold text-emerald-800">Plataforma segura</div>
-              <div className="mt-1 text-xs text-emerald-700 leading-relaxed">
-                Cifrado TLS en tránsito · Autenticación JWT con Supabase · Rate limiting activo ·
-                Cabeceras de seguridad HTTP (Helmet) · Datos en PostgreSQL con RLS
-              </div>
+          ) : (
+            <div className="border-t border-yb-rule pt-6">
+              <p className="font-yb-serif text-2xl leading-snug text-yb-ink">Todavía no hay un evento.</p>
+              <p className="mt-2 text-sm text-yb-ink-muted">Cuando lo crees, aquí verás su estado, fecha y enlace público.</p>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </Rise>
+      </div>
 
+      {isAdmin && (
+        <Rise i={6} className="mt-16">
+          <p className="flex items-center gap-2 border-t border-yb-rule pt-5 text-xs text-yb-ink-muted">
+            <ShieldCheck size={13} strokeWidth={1.6} />
+            Conexión cifrada (TLS) · Autenticación con Supabase · Datos protegidos con RLS
+          </p>
+        </Rise>
+      )}
     </div>
   );
 };

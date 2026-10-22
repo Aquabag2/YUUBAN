@@ -16,6 +16,12 @@ module.exports = {
         'yb-selva':   '#2f5a3a',
         'yb-laton':   '#d1a95a',
         'yb-madera':  '#6b4630',
+        // ── App (claro, sobrio) ──
+        'yb-paper':     '#f7f6f1',
+        'yb-ink':       '#16201a',
+        'yb-ink-muted': '#5f655a',
+        'yb-rule':      '#e3e1d8',
+        'yb-forest':    '#284d32',
         // ── Paleta oficial Yuuban ─────────────────────────────────────
         // Fondo principal de la app
         'yn-bg':      '#07080F',
@@ -86,6 +92,9 @@ module.exports = {
         'mono': ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       animation: {
+        'yb-rise': 'ybRise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both',
+        'yb-line': 'ybLine 1.1s cubic-bezier(0.65, 0, 0.35, 1) 0.15s both',
+        'yb-fade': 'fadeIn 0.5s ease-out both',
         'fade-in': 'fadeIn 0.5s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'bounce-gentle': 'bounceGentle 2s infinite',
@@ -100,6 +109,14 @@ module.exports = {
         'wave': 'wave 3s ease-in-out infinite',
       },
       keyframes: {
+        ybRise: {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        ybLine: {
+          '0%': { transform: 'scaleX(0)' },
+          '100%': { transform: 'scaleX(1)' },
+        },
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
