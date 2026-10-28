@@ -21,13 +21,14 @@ import Dashboard from './pages/Dashboard';
 import MisConcursos from './pages/MisConcursos';
 import Mapa from './pages/Mapa';
 import Coordinacion from './pages/Coordinacion';
+import Perfil from './pages/Perfil';
 
 // Root: Landing si no hay sesión, dashboard si sí hay
 const Root = () => {
   const { user, loading } = useAuth();
   if (loading) return (
-    <div className="flex min-h-screen items-center justify-center bg-[#080c14]">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+    <div className="flex min-h-screen items-center justify-center bg-yb-paper">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-yb-ink border-t-transparent" />
     </div>
   );
   if (!user) return <Landing />;
@@ -39,8 +40,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-yb-paper">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-yb-ink border-t-transparent" />
       </div>
     );
   }
@@ -82,6 +83,7 @@ function App() {
 
               {/* Cursos — todos los roles ven eventos disponibles */}
               <Route path="cursos"               element={<Cursos />} />
+              <Route path="perfil"               element={<Perfil />} />
               <Route path="novedades"            element={<Novedades />} />
 
               {/* Estudiante */}

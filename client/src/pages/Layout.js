@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import StudentShell from './StudentShell';
 import {
   LayoutDashboard, Users, ShieldCheck, LogOut,
   GraduationCap, Megaphone, BookOpen, Home, ChevronLeft,
@@ -169,6 +170,12 @@ const Sidebar = ({ collapsed, onToggle, onClose, mobile }) => {
 
 // ── Layout principal ───────────────────────────────────────────────────────────
 const Layout = () => {
+  const { profile } = useAuth();
+  if (profile?.role === 'student') return <StudentShell />;
+  return <StaffLayout />;
+};
+
+const StaffLayout = () => {
   const location = useLocation();
   const [collapsed,  setCollapsed]  = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);

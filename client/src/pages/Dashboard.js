@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Calendar, Award, Megaphone, ArrowRight, ArrowUpRight,
-  QrCode, ShieldCheck, BookOpen, GraduationCap, Trophy,
+  QrCode, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
+import StudentHome from './StudentHome';
 
 /*
  * Dashboard — estilo sobrio: papel, tinta y un solo acento verde (yb-forest).
@@ -129,23 +130,8 @@ const Dashboard = () => {
     Promise.allSettled(loads).finally(() => setLoading(false));
   }, [isAdmin, isSuperAdmin]);
 
-  // ── Vista estudiante ───────────────────────────────────────────────────────
-  if (role === 'student') {
-    return (
-      <div className="font-yb-sans">
-        <Header title={`${greeting()}, ${firstName}`} subtitle="Bienvenido a Yuuban." />
-        <Rise i={3}>
-          <SectionTitle>Accesos</SectionTitle>
-          <div className="border-t border-yb-rule">
-            <Action icon={BookOpen}      label="Cursos"          desc="Explora los eventos y festivales disponibles" to="/cursos" />
-            <Action icon={GraduationCap} label="Mis clases"      desc="Tus inscripciones y horarios"                 to="/estudiante" />
-            <Action icon={Trophy}        label="Mis concursos"   desc="Participaciones y resultados"                 to="/mis-concursos" />
-            <Action icon={Megaphone}     label="Novedades"       desc="Anuncios, horarios y resultados de tu festival" to="/novedades" />
-          </div>
-        </Rise>
-      </div>
-    );
-  }
+  // ── Vista estudiante: inicio tipo red social ───────────────────────────────
+  if (role === 'student') return <StudentHome />;
 
   // ── Vista admin / super_admin ──────────────────────────────────────────────
   const inscritos = loading ? null : (typeof stats?.totalStudents === 'number' ? stats.totalStudents : (event ? '—' : 0));

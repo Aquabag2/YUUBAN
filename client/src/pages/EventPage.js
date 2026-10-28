@@ -1,70 +1,39 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Music2, CheckCircle2, Share2, Ticket, CreditCard, XCircle, ChevronRight, Check } from 'lucide-react';
+import { Calendar, MapPin, Clock, CheckCircle2, Share2, Ticket, CreditCard, XCircle, ChevronRight, Check } from 'lucide-react';
 import api from '../lib/api';
-
-const COVER_GRADIENTS = {
-  violet: 'from-violet-600/40 via-indigo-600/20 to-slate-900/80',
-  emerald:'from-emerald-600/40 via-teal-600/20 to-slate-900/80',
-  amber:  'from-amber-600/40 via-orange-600/20 to-slate-900/80',
-  rose:   'from-rose-600/40 via-pink-600/20 to-slate-900/80',
-  indigo: 'from-indigo-600/40 via-blue-600/20 to-slate-900/80',
-};
-const BLOB_COLORS   = { violet:'bg-violet-500/15', emerald:'bg-emerald-500/15', amber:'bg-amber-500/15', rose:'bg-rose-500/15', indigo:'bg-indigo-500/15' };
-const ACCENT_COLORS = { violet:'text-violet-400', emerald:'text-emerald-400', amber:'text-amber-400', rose:'text-rose-400', indigo:'text-indigo-400' };
-const BUTTON_COLORS = {
-  violet: 'from-violet-600 to-indigo-600 shadow-violet-500/25 hover:from-violet-500 hover:to-indigo-500',
-  emerald:'from-emerald-600 to-teal-600 shadow-emerald-500/25 hover:from-emerald-500 hover:to-teal-500',
-  amber:  'from-amber-600 to-orange-600 shadow-amber-500/25 hover:from-amber-500 hover:to-orange-500',
-  rose:   'from-rose-600 to-pink-600 shadow-rose-500/25 hover:from-rose-500 hover:to-pink-500',
-  indigo: 'from-indigo-600 to-blue-600 shadow-indigo-500/25 hover:from-indigo-500 hover:to-blue-500',
-};
 
 const EMPTY_FORM = { name:'', email:'', instrument:'', notes:'' };
 const fmtPrice = (c) => new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:0}).format(c/100);
 
+const inputCls = 'w-full rounded-[3px] border border-yb-rule bg-white px-3.5 py-3 text-[15px] text-yb-ink placeholder-yb-ink-muted outline-none transition focus:border-yb-ink';
+const primaryBtn = 'flex w-full items-center justify-center gap-2 rounded-[3px] bg-yb-forest py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-yb-ink disabled:opacity-60';
+const initialsOf = (t = '') => t.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || 'Y';
+
 // ── Selector de tipo de participación ─────────────────────────────────────────
-const TypeSelector = ({ types, selected, onSelect, accent, btn }) => (
-  <div className="space-y-3">
-    <div className="text-center">
-      <h2 className="text-xl font-bold text-white">¿Cómo participas?</h2>
-      <p className="mt-1 text-sm text-white/40">Elige tu tipo de participación en el festival.</p>
-    </div>
-    <div className="space-y-2.5 mt-4">
-      {types.map(t => {
-        const isSelected = selected?.id === t.id;
+const TypeSelector = ({ types, selected, onSelect }) => (
+  <div>
+    <h2 className="font-yb-serif text-[30px] leading-tight">¿Cómo participas?</h2>
+    <p className="mt-1 text-sm text-yb-ink-muted">Elige tu tipo de participación.</p>
+    <div className="mt-5 border-t border-yb-rule">
+      {types.map((t) => {
+        const on = selected?.id === t.id;
         return (
-          <button key={t.id} onClick={() => onSelect(t)}
-            className={`w-full flex items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-all ${
-              isSelected
-                ? 'border-white/30 bg-white/10 ring-1 ring-white/20'
-                : 'border-white/10 bg-white/3 hover:bg-white/8 hover:border-white/20'
-            }`}>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <div className={`font-semibold text-white text-sm ${isSelected ? '' : ''}`}>{t.name}</div>
-                {isSelected && <Check size={13} className="text-emerald-400 shrink-0"/>}
-              </div>
-              {t.description && <div className="mt-0.5 text-xs text-white/40 leading-relaxed">{t.description}</div>}
-              {t.capacity && <div className="mt-1 text-[10px] text-white/30">{t.capacity} cupos disponibles</div>}
-            </div>
-            <div className="shrink-0 text-right">
-              <div className={`text-base font-bold ${t.price_cents === 0 ? 'text-emerald-400' : accent}`}>
-                {t.price_cents === 0 ? 'Gratis' : fmtPrice(t.price_cents)}
-              </div>
-            </div>
+          <button key={t.id} type="button" onClick={() => onSelect(t)}
+            className={`flex w-full items-center gap-4 border-b border-yb-rule px-1 py-4 text-left transition-colors ${on ? 'bg-white' : 'hover:bg-white/60'}`}>
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${on ? 'border-yb-forest bg-yb-forest text-white' : 'border-yb-ink-muted'}`}>
+              {on && <Check size={12} strokeWidth={3} />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold">{t.name}</span>
+              {t.description && <span className="mt-0.5 block text-sm leading-relaxed text-yb-ink-muted">{t.description}</span>}
+              {t.capacity && <span className="mt-0.5 block text-xs text-yb-ink-muted">{t.capacity} lugares</span>}
+            </span>
+            <span className="shrink-0 font-yb-serif text-xl">{t.price_cents === 0 ? 'Gratis' : fmtPrice(t.price_cents)}</span>
           </button>
         );
       })}
     </div>
-    {selected && (
-      <button
-        className={`mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-3 text-sm font-semibold text-white shadow-lg transition-all ${btn}`}
-        onClick={() => {}} // handled by parent showing form
-      >
-        Continuar como {selected.name} <ChevronRight size={14}/>
-      </button>
-    )}
   </div>
 );
 
@@ -167,231 +136,204 @@ const EventPage = () => {
     } finally { setSubmitting(false); }
   };
 
-  const color    = event?.cover_color ?? 'violet';
-  const gradient = COVER_GRADIENTS[color] ?? COVER_GRADIENTS.violet;
-  const blob     = BLOB_COLORS[color]     ?? BLOB_COLORS.violet;
-  const accent   = ACCENT_COLORS[color]   ?? ACCENT_COLORS.violet;
-  const btn      = BUTTON_COLORS[color]   ?? BUTTON_COLORS.violet;
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    try {
+      if (navigator.share) await navigator.share({ title: event?.title, url: window.location.href });
+      else { await navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    } catch { /* cancelado */ }
+  };
 
   if (loading || confirming) return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent"/>
-      {confirming && <span className="ml-3 text-sm text-white/40">Confirmando pago…</span>}
+    <div className="flex min-h-screen items-center justify-center gap-3 bg-yb-paper font-yb-sans">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-yb-ink border-t-transparent" />
+      {confirming && <span className="text-sm text-yb-ink-muted">Confirmando pago…</span>}
     </div>
   );
 
   if (notFound || !event) return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 text-center px-6">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5">
-        <Music2 size={28} className="text-white/20"/>
-      </div>
-      <div>
-        <div className="text-lg font-semibold text-white">Evento no encontrado</div>
-        <div className="mt-1 text-sm text-white/40">Este enlace puede haber expirado o no existe.</div>
-      </div>
-      <Link to="/" className="mt-2 flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors">Ir al inicio</Link>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-yb-paper px-6 text-center font-yb-sans text-yb-ink">
+      <p className="font-yb-serif text-4xl">Evento no encontrado</p>
+      <p className="mt-2 text-sm text-yb-ink-muted">Este enlace puede haber expirado o no existe.</p>
+      <Link to="/" className="mt-6 text-sm font-semibold underline decoration-1 underline-offset-4">Ir al inicio</Link>
     </div>
   );
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+  const priceLabel = hasTypes
+    ? (ticketTypes.some((t) => t.price_cents === 0) ? 'Desde gratis' : `Desde ${fmtPrice(Math.min(...ticketTypes.map((t) => t.price_cents)))}`)
+    : (isPaid ? fmtPrice(effectivePrice) : 'Gratis');
 
-      {/* Header */}
-      <div className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600">
-              <Music2 size={14} className="text-white"/>
-            </div>
-            <span className="text-sm font-bold text-white">Yuuban</span>
-          </div>
-          <button type="button"
-            onClick={() => navigator.clipboard.writeText(window.location.href).catch(() => {})}
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/50 hover:bg-white/10 hover:text-white transition-colors">
-            <Share2 size={12}/> Compartir
+  return (
+    <div className="min-h-screen bg-yb-paper font-yb-sans text-yb-ink">
+
+      {/* Barra superior */}
+      <header className="sticky top-0 z-40 border-b border-yb-rule bg-yb-paper/90 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
+          <Link to="/" className="font-yb-serif text-[26px] leading-none tracking-tight">Yuuban</Link>
+          <button type="button" onClick={share}
+            className="flex items-center gap-1.5 text-sm font-medium text-yb-ink-muted transition-colors hover:text-yb-ink">
+            <Share2 size={15} strokeWidth={1.6} /> {copied ? 'Enlace copiado' : 'Compartir'}
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="mx-auto max-w-5xl px-6 py-10 space-y-10">
+      <main className="mx-auto max-w-5xl px-5 pb-20">
 
-        {/* Hero */}
-        <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${gradient} border border-white/10 p-10`}>
-          <div className={`pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full ${blob} blur-3xl`}/>
-          <div className={`pointer-events-none absolute -bottom-16 -left-16 h-52 w-52 rounded-full ${blob} blur-3xl`}/>
-          <div className="relative">
-            <div className={`mb-2 text-sm font-medium ${accent}`}>Evento musical</div>
-            <h1 className="text-4xl font-bold tracking-tight text-white">{event.title}</h1>
-            {event.summary && <p className="mt-3 max-w-xl text-base text-white/60 leading-relaxed">{event.summary}</p>}
-            <div className="mt-6 flex flex-wrap gap-5 text-sm text-white/50">
-              {event.date     && <span className="flex items-center gap-2"><Calendar size={15} className={accent}/> {event.date}</span>}
-              {event.location && <span className="flex items-center gap-2"><MapPin size={15} className={accent}/> {event.location}</span>}
-              {!hasTypes && isPaid && (
-                <span className={`flex items-center gap-2 font-semibold ${accent}`}><CreditCard size={15}/> {fmtPrice(effectivePrice)}</span>
-              )}
-              {hasTypes && (
-                <span className={`flex items-center gap-2 ${accent}`}>
-                  <Ticket size={15}/> {ticketTypes.filter(t => t.price_cents === 0).length > 0 ? 'Entrada gratuita y de pago' : 'Entrada con pago'}
-                </span>
-              )}
-            </div>
+        {/* Perfil del evento */}
+        <section className="animate-yb-rise flex flex-col gap-6 py-10 motion-reduce:animate-none sm:flex-row sm:items-center sm:gap-10">
+          <span className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-yb-ink font-yb-serif text-4xl text-yb-paper ring-2 ring-yb-forest ring-offset-4 ring-offset-yb-paper sm:h-32 sm:w-32 sm:text-5xl">
+            {initialsOf(event.title)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-yb-forest">Inscripciones abiertas</p>
+            <h1 className="mt-2 font-yb-serif text-[44px] leading-[1.02] tracking-[-0.01em] sm:text-[60px]">{event.title}</h1>
+            {event.summary && <p className="mt-3 max-w-2xl text-[16px] leading-relaxed text-yb-ink-muted">{event.summary}</p>}
           </div>
-        </div>
+        </section>
 
-        <div className="grid gap-8 lg:grid-cols-[1fr,380px]">
+        <dl className="animate-yb-rise grid grid-cols-1 border-y border-yb-rule sm:grid-cols-3 motion-reduce:animate-none" style={{ animationDelay: '120ms' }}>
+          {[
+            { k: 'Fecha', v: event.date || 'Por anunciar', icon: Calendar },
+            { k: 'Lugar', v: event.location || 'Por anunciar', icon: MapPin },
+            { k: 'Entrada', v: priceLabel, icon: Ticket },
+          ].map(({ k, v, icon: Icon }, i) => (
+            <div key={k} className={`flex items-baseline justify-between gap-4 py-3 sm:block sm:py-4 ${i ? 'border-t border-yb-rule sm:border-l sm:border-t-0 sm:pl-6' : 'sm:pr-4'}`}>
+              <dt className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-yb-ink-muted"><Icon size={12} strokeWidth={1.8} />{k}</dt>
+              <dd className="text-right font-yb-serif text-lg sm:mt-1 sm:truncate sm:text-left sm:text-[22px]">{v}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="mt-10 grid gap-12 lg:grid-cols-[1fr_400px]">
 
           {/* Programa */}
-          <section>
-            <h2 className="mb-5 text-xl font-bold text-white">Programa</h2>
+          <section className="animate-yb-rise order-2 motion-reduce:animate-none lg:order-1" style={{ animationDelay: '200ms' }}>
+            <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-yb-ink-muted">Programa</h2>
             {schedule.length > 0 ? (
-              <div className="space-y-3">
+              <ol className="border-t border-yb-rule">
                 {schedule.map((item, i) => (
-                  <div key={item.id ?? i} className="flex gap-4 rounded-2xl border border-white/10 bg-white/3 px-5 py-4 hover:bg-white/5 transition-colors">
-                    <div className="flex shrink-0 flex-col items-center gap-1">
-                      <span className={`font-mono text-sm font-bold ${accent}`}>{item.start_time}</span>
-                      {item.end_time && <><div className="flex-1 w-px bg-white/10"/><span className="font-mono text-xs text-white/30">{item.end_time}</span></>}
+                  <li key={item.id ?? i} className="grid grid-cols-[84px_1fr] gap-4 border-b border-yb-rule py-4">
+                    <span className="pt-1 text-sm font-semibold tabular-nums">
+                      {item.start_time}{item.end_time && <span className="block text-xs font-normal text-yb-ink-muted">{item.end_time}</span>}
+                    </span>
+                    <div>
+                      <div className="font-yb-serif text-[22px] leading-tight">{item.title}</div>
+                      {item.place && <div className="mt-1 flex items-center gap-1.5 text-sm text-yb-ink-muted"><MapPin size={13} strokeWidth={1.6} />{item.place}</div>}
                     </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-white">{item.title}</div>
-                      {item.place && <div className="mt-1 flex items-center gap-1 text-xs text-white/40"><MapPin size={11}/> {item.place}</div>}
-                    </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 py-14 text-center">
-                <Clock size={22} className="text-white/20"/>
-                <div className="text-sm text-white/30">El programa se publicará pronto.</div>
+              <div className="border-t border-yb-rule py-8">
+                <p className="flex items-center gap-2 font-yb-serif text-2xl"><Clock size={18} strokeWidth={1.6} /> El programa se publicará pronto.</p>
+                <p className="mt-2 text-sm text-yb-ink-muted">Inscríbete y te avisaremos en cuanto esté listo.</p>
               </div>
             )}
           </section>
 
-          {/* Panel de inscripción */}
-          <section>
-            <div className="sticky top-24 rounded-3xl border border-white/10 bg-white/3 p-6">
+          {/* Inscripción */}
+          <section className="animate-yb-rise order-1 motion-reduce:animate-none lg:order-2" style={{ animationDelay: '160ms' }}>
+            <div className="border border-yb-rule bg-white p-6 sm:p-7 lg:sticky lg:top-20">
 
-              {/* Pago cancelado */}
               {!done && paymentMsg === 'cancelled' && (
-                <div className="mb-4 flex items-start gap-3 rounded-xl bg-rose-500/10 px-4 py-3">
-                  <XCircle size={16} className="mt-0.5 shrink-0 text-rose-400"/>
-                  <div className="text-sm text-rose-300">Cancelaste el pago. Puedes intentarlo de nuevo.</div>
+                <div className="mb-5 flex items-start gap-2.5 border-b border-yb-rule pb-4 text-sm text-red-700">
+                  <XCircle size={16} className="mt-0.5 shrink-0" /> Cancelaste el pago. Puedes intentarlo de nuevo.
                 </div>
               )}
 
               {done ? (
-                <div className="flex flex-col items-center gap-4 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
-                    <CheckCircle2 size={26} className="text-emerald-400"/>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white">¡Listo! Estás inscrito.</div>
-                    {selectedType && <div className="mt-0.5 text-xs text-white/40">Como {selectedType.name}</div>}
-                    <div className="mt-1 text-sm text-white/50">Tu entrada digital está lista. Guárdala para mostrarla en la puerta.</div>
-                  </div>
+                <div className="text-center">
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-yb-forest text-white"><CheckCircle2 size={26} /></span>
+                  <h2 className="mt-5 font-yb-serif text-[32px] leading-tight">Ya estás dentro.</h2>
+                  {selectedType && <p className="mt-1 text-sm text-yb-ink-muted">Como {selectedType.name}</p>}
+                  <p className="mt-2 text-[15px] text-yb-ink-muted">Tu boleto digital está listo. Muéstralo en la entrada.</p>
                   {ticketUrl && (
-                    <Link to={ticketUrl}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 hover:from-violet-500 hover:to-indigo-500 transition-all">
-                      <Ticket size={15}/> Ver mi ticket QR
-                    </Link>
+                    <Link to={ticketUrl} className={`${primaryBtn} mt-6`}><Ticket size={16} /> Ver mi boleto QR</Link>
                   )}
+                  <div className="mt-6 border-t border-yb-rule pt-5 text-left">
+                    <p className="text-sm font-semibold">Sigue el festival desde tu cuenta</p>
+                    <p className="mt-1 text-sm text-yb-ink-muted">Noticias, tus clases y tus resultados en un solo lugar.</p>
+                    <Link to="/login" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline decoration-1 underline-offset-4 hover:text-yb-forest">
+                      Entrar o crear cuenta <ChevronRight size={14} />
+                    </Link>
+                  </div>
                   <button type="button" onClick={() => { setDone(false); setTicketUrl(''); setPaymentMsg(''); setSelectedType(null); setTypeConfirmed(false); }}
-                    className="text-xs text-white/30 underline hover:text-white/60 transition-colors">
+                    className="mt-5 text-xs text-yb-ink-muted underline underline-offset-2 hover:text-yb-ink">
                     Inscribir a otra persona
                   </button>
                 </div>
 
               ) : hasTypes && (!selectedType || !typeConfirmed) ? (
-                /* ── Selector de tipo ── */
-                <div className="space-y-3">
-                  <TypeSelector
-                    types={ticketTypes}
-                    selected={selectedType}
-                    onSelect={handleSelectType}
-                    accent={accent}
-                    btn={btn}
-                  />
+                <div>
+                  <TypeSelector types={ticketTypes} selected={selectedType} onSelect={handleSelectType} />
                   {selectedType && (
-                    <button onClick={handleConfirmType}
-                      className={`flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-3 text-sm font-semibold text-white shadow-lg transition-all ${btn}`}>
-                      Continuar como {selectedType.name} <ChevronRight size={14}/>
+                    <button type="button" onClick={handleConfirmType} className={`${primaryBtn} mt-5`}>
+                      Continuar como {selectedType.name} <ChevronRight size={15} />
                     </button>
                   )}
                 </div>
 
               ) : (
-                /* ── Formulario ── */
-                <form onSubmit={handleSubmit} className="space-y-3">
-
-                  {/* Tipo seleccionado badge */}
-                  {selectedType && (
-                    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {selectedType ? (
+                    <div className="flex items-end justify-between border-b border-yb-rule pb-4">
                       <div>
-                        <div className="text-xs text-white/40">Participando como</div>
-                        <div className="text-sm font-semibold text-white">{selectedType.name}</div>
+                        <div className="text-xs text-yb-ink-muted">Participas como</div>
+                        <div className="font-yb-serif text-2xl leading-tight">{selectedType.name}</div>
                       </div>
                       <div className="text-right">
-                        <div className={`text-sm font-bold ${effectivePrice === 0 ? 'text-emerald-400' : accent}`}>
-                          {effectivePrice === 0 ? 'Gratis' : fmtPrice(effectivePrice)}
-                        </div>
+                        <div className="font-yb-serif text-xl">{effectivePrice === 0 ? 'Gratis' : fmtPrice(effectivePrice)}</div>
                         <button type="button" onClick={() => { setSelectedType(null); setTypeConfirmed(false); }}
-                          className="text-[10px] text-white/30 hover:text-white/60 transition-colors">Cambiar</button>
+                          className="text-xs text-yb-ink-muted underline underline-offset-2 hover:text-yb-ink">Cambiar</button>
                       </div>
                     </div>
-                  )}
-
-                  {!selectedType && (
-                    <div>
-                      <h2 className="text-xl font-bold text-white">
-                        {isPaid ? `Inscríbete · ${fmtPrice(effectivePrice)}` : 'Inscríbete'}
-                      </h2>
-                      <p className="mt-1 text-sm text-white/50">
-                        {isPaid ? 'Pago seguro con tarjeta vía Stripe.' : 'Gratis. Te confirmaremos por correo.'}
+                  ) : (
+                    <div className="pb-1">
+                      <h2 className="font-yb-serif text-[32px] leading-tight">Inscríbete</h2>
+                      <p className="mt-1 text-sm text-yb-ink-muted">
+                        {isPaid ? `${fmtPrice(effectivePrice)} · pago seguro con tarjeta.` : 'Gratis. Te confirmamos por correo.'}
                       </p>
                     </div>
                   )}
 
                   {[
-                    { key:'name',       label:'Nombre completo *',          type:'text',  placeholder:'Ej. Ana García',          required:true },
-                    { key:'email',      label:'Correo electrónico *',       type:'email', placeholder:'tu@correo.com',           required:true },
-                    { key:'instrument', label:'Instrumento / área (opcional)', type:'text', placeholder:'Ej. Piano, Guitarra…',   required:false },
-                  ].map(({ key, label, type, placeholder, required }) => (
-                    <div key={key}>
-                      <label className="mb-1 block text-xs text-white/40">{label}</label>
-                      <input type={type} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                        placeholder={placeholder} required={required}
-                        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/20 transition-all"/>
-                    </div>
+                    { key: 'name',       label: 'Nombre completo',     type: 'text',  placeholder: 'Ej. Ana García',       required: true,  auto: 'name' },
+                    { key: 'email',      label: 'Correo electrónico',  type: 'email', placeholder: 'tu@correo.com',        required: true,  auto: 'email' },
+                    { key: 'instrument', label: 'Instrumento o área',  type: 'text',  placeholder: 'Ej. Piano, guitarra',  required: false, auto: 'off' },
+                  ].map(({ key, label, type, placeholder, required, auto }) => (
+                    <label key={key} className="block">
+                      <span className="mb-1.5 flex justify-between text-xs font-medium text-yb-ink-muted">
+                        {label}{!required && <span>Opcional</span>}
+                      </span>
+                      <input type={type} value={form[key]} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+                        placeholder={placeholder} required={required} autoComplete={auto} className={inputCls} />
+                    </label>
                   ))}
-                  <div>
-                    <label className="mb-1 block text-xs text-white/40">Comentarios (opcional)</label>
-                    <textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                      placeholder="¿Algo que debamos saber?" rows={3}
-                      className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/20 outline-none focus:border-violet-500/60 focus:ring-1 focus:ring-violet-500/20 transition-all"/>
-                  </div>
+                  <label className="block">
+                    <span className="mb-1.5 flex justify-between text-xs font-medium text-yb-ink-muted">Comentarios<span>Opcional</span></span>
+                    <textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                      placeholder="¿Algo que debamos saber?" rows={3} className={`${inputCls} resize-none`} />
+                  </label>
 
-                  {formError && (
-                    <div className="rounded-xl bg-rose-500/10 px-4 py-2.5 text-xs text-rose-400">{formError}</div>
-                  )}
+                  {formError && <p className="text-sm text-red-700">{formError}</p>}
 
-                  <button type="submit" disabled={submitting}
-                    className={`mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r py-3 text-sm font-semibold text-white shadow-lg transition-all disabled:opacity-60 ${btn}`}>
+                  <button type="submit" disabled={submitting} className={primaryBtn}>
                     {submitting ? (
-                      <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"/>
-                      {isPaid ? 'Redirigiendo a pago…' : 'Enviando…'}</>
+                      <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />{isPaid ? 'Redirigiendo al pago…' : 'Enviando…'}</>
                     ) : isPaid ? (
-                      <><CreditCard size={15}/> Pagar {fmtPrice(effectivePrice)} e inscribirme</>
+                      <><CreditCard size={16} /> Pagar {fmtPrice(effectivePrice)} e inscribirme</>
                     ) : 'Quiero inscribirme'}
                   </button>
 
-                  <p className="text-center text-xs text-white/20">
-                    {isPaid ? 'Pago procesado por Stripe. Tu información está segura.' : 'Tu información no se compartirá con terceros.'}
+                  <p className="text-center text-xs text-yb-ink-muted">
+                    {isPaid ? 'Pago procesado por Stripe. Tus datos están protegidos.' : 'Tu información no se comparte con terceros.'}
                   </p>
                 </form>
               )}
             </div>
           </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
