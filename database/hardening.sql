@@ -6,7 +6,7 @@
 -- se le quita TODO acceso directo a las tablas a los roles públicos (anon y authenticated).
 -- La anon key que va dentro de la página web ya no sirve para leer ni escribir datos.
 --
--- Es seguro correrlo varias veces. Corre ANTES security_payments.sql.
+-- Es seguro correrlo varias veces. Corre DESPUÉS de security_payments.sql.
 
 BEGIN;
 

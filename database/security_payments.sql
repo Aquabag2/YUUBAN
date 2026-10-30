@@ -1,6 +1,7 @@
 -- ─── Yuuban — Poner la base al día + seguridad de inscripciones y pagos ──────
 -- Ejecuta en: Supabase Dashboard → SQL Editor → New query (todo el archivo de una vez)
 -- Es seguro correrlo varias veces: solo crea lo que falta y se salta tablas que no existen.
+-- Orden: 1) este archivo  2) hardening.sql
 
 -- ── 1. Tablas y columnas que la app necesita ─────────────────────────────────
 ALTER TABLE events
