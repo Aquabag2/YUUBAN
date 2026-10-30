@@ -1,0 +1,9 @@
+# Nunca subir claves a Vercel: las variables se configuran en el panel
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+.mcp.json
+.claude/

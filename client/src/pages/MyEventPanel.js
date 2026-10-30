@@ -5,6 +5,7 @@ import {
   Users, Plus, Trash2, ChevronLeft, Lock, Trophy,
   Megaphone, Calendar, Star, Pin, Loader2, X, Check,
   DollarSign, Tag, MapPin, Clock, User, Ticket, CreditCard,
+  Mail, Smartphone, Monitor, RotateCw, Eye, Award, QrCode, Receipt,
 } from 'lucide-react';
 import api from '../lib/api';
 
@@ -334,63 +335,345 @@ const ConcursosTab = ({ eventId }) => {
   );
 };
 
+// ── TAB: Vista previa (invitación y app del alumno incrustadas) ──────────────
+const VIEWS = [
+  { key: 'invitacion', label: 'Invitación',        hint: 'Donde se inscriben',          icon: Mail,       path: (s) => `/e/${s}` },
+  { key: 'alumno',     label: 'Inicio del alumno', hint: 'Feed, horario y constancias', icon: Smartphone, path: (s) => `/vista-alumno/${s}` },
+];
+
+const VistaTab = ({ event, onGo }) => {
+  const [view,   setView]   = useState('alumno');
+  const [device, setDevice] = useState('cel');
+  const [reload, setReload] = useState(0);
+  const current = VIEWS.find((v) => v.key === view);
+  const src = current.path(event.slug);
+
+  const seg = (active) => `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`;
+
+  return (
+    <div className="space-y-4">
+      {/* Controles */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex rounded-xl bg-gray-100 p-1">
+          {VIEWS.map(({ key, label, icon: Icon }) => (
+            <button key={key} type="button" onClick={() => setView(key)} className={seg(view === key)}>
+              <Icon size={13}/> {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-xl bg-gray-100 p-1">
+            <button type="button" onClick={() => setDevice('cel')} className={seg(device === 'cel')} title="Celular"><Smartphone size={13}/></button>
+            <button type="button" onClick={() => setDevice('pc')} className={seg(device === 'pc')} title="Escritorio"><Monitor size={13}/></button>
+          </div>
+          <button type="button" onClick={() => setReload((n) => n + 1)} title="Recargar"
+            className="rounded-xl border border-gray-200 bg-white p-2 text-gray-500 hover:bg-gray-50 transition-colors"><RotateCw size={14}/></button>
+          <a href={src} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
+            <ExternalLink size={12}/> Abrir completa
+          </a>
+        </div>
+      </div>
+
+      {!event.is_published && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-700">
+          <Lock size={13}/> Está en borrador: solo tú puedes verla. Publícala para que tus alumnos entren.
+        </div>
+      )}
+
+      <div className={device === 'cel' ? 'grid gap-8 lg:grid-cols-[auto_1fr]' : ''}>
+        {/* Marco */}
+        {device === 'cel' ? (
+          <div className="mx-auto w-fit rounded-[46px] bg-gray-900 p-3 shadow-2xl shadow-gray-300 ring-1 ring-gray-800">
+            <div className="relative overflow-hidden rounded-[34px] bg-white">
+              <div className="pointer-events-none absolute left-1/2 top-2 z-10 h-6 w-28 -translate-x-1/2 rounded-full bg-gray-900"/>
+              <iframe key={`${src}-${reload}`} src={src} title={current.label} className="block h-[760px] w-[375px] border-0 sm:w-[390px]"/>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl shadow-gray-200">
+            <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50 px-4 py-2.5">
+              <div className="flex gap-1.5">{['bg-red-300', 'bg-amber-300', 'bg-emerald-300'].map((c) => <span key={c} className={`h-2.5 w-2.5 rounded-full ${c}`}/>)}</div>
+              <div className="flex-1 truncate rounded-lg bg-white px-3 py-1 text-center text-xs text-gray-400 ring-1 ring-gray-200">
+                {window.location.host}{src}
+              </div>
+            </div>
+            <iframe key={`${src}-${reload}`} src={src} title={current.label} className="block h-[780px] w-full border-0"/>
+          </div>
+        )}
+
+        {/* Guía al lado del celular */}
+        {device === 'cel' && (
+          <div className="space-y-4 lg:max-w-sm lg:pt-6">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-violet-600">{current.hint}</div>
+              <h3 className="mt-1 text-lg font-bold text-gray-900">{current.label}</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {view === 'alumno'
+                  ? 'Así se ve el inicio de un alumno inscrito: las noticias del festival, su horario del día, su boleto y sus constancias cuando estén listas.'
+                  : 'Así llega un invitado con tu link: ve el festival, el programa y se inscribe solo con su nombre.'}
+              </p>
+            </div>
+            <ul className="space-y-2.5 text-sm text-gray-600">
+              {(view === 'alumno'
+                ? [[Megaphone, 'Noticias y anuncios', 'Lo que publiques en Noticias', 'noticias'],
+                   [Calendar, 'Horario', 'Las clases y actividades del día', null],
+                   [Award, 'Constancias', 'Aparecen al generar su constancia', null],
+                   [Ticket, 'Boleto QR', 'Aquí se ve uno de ejemplo', null]]
+                : [[Ticket, 'Planes', 'Las opciones que eligen al inscribirse', 'planes'],
+                   [Users, 'Inscritos', 'Cada inscripción llega a tu lista', 'inscritos'],
+                   [Edit3, 'Datos del evento', 'Nombre, fecha, lugar y descripción', 'detalles']]
+              ).map(([Icon, title, text, tab]) => (
+                <li key={title}>
+                  <button type="button" disabled={!tab} onClick={() => tab && onGo(tab)}
+                    className="group flex w-full items-start gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors enabled:hover:border-violet-300 disabled:cursor-default">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600"><Icon size={15}/></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium text-gray-900">{title}</span>
+                      <span className="block text-xs text-gray-400">{text}</span>
+                    </span>
+                    {tab && <span className="self-center text-xs font-semibold text-violet-600 opacity-0 transition-opacity group-hover:opacity-100">Editar →</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-400">Lo que cambies se ve al instante: toca <RotateCw size={11} className="inline"/> para recargar.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ── TAB: Inscritos ────────────────────────────────────────────────────────────
+const fmtDate = (d) => new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+
+// Estado de pago de una inscripción
+const payState = (r) => {
+  if (r.price_cents > 0 || r.stripe_session_id) {
+    if (r.paid) return r.stripe_session_id ? 'stripe' : 'pagado';
+    return 'pendiente';
+  }
+  return 'gratis';
+};
+const PAY_BADGE = {
+  stripe:    ['border-emerald-200 bg-emerald-50 text-emerald-700', 'Pagado'],
+  pagado:    ['border-emerald-200 bg-emerald-50 text-emerald-700', 'Pagado'],
+  pendiente: ['border-amber-200 bg-amber-50 text-amber-700',       'Pendiente'],
+  gratis:    ['border-gray-200 bg-gray-50 text-gray-500',          'Gratis'],
+};
+const PayBadge = ({ r }) => {
+  const st = payState(r);
+  const [cls, label] = PAY_BADGE[st];
+  return (
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+      {st === 'stripe' && <CreditCard size={11}/>}{label}{st !== 'gratis' && r.price_cents > 0 && ` · ${fmtMXN(r.price_cents)}`}
+    </span>
+  );
+};
+
+const Detail = ({ label, children }) => (
+  <div className="flex items-start justify-between gap-4 py-2.5 text-sm">
+    <span className="shrink-0 text-gray-400">{label}</span>
+    <span className="min-w-0 text-right font-medium text-gray-800 break-words">{children}</span>
+  </div>
+);
+
+// Panel lateral con todo lo de un alumno, incluido su pago en Stripe
+const RegDrawer = ({ eventId, reg, onClose }) => {
+  const [pay, setPay] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setPay(null);
+    if (!reg.stripe_session_id) return;
+    api.get(`/my-event/${eventId}/registrations/${reg.id}/payment`)
+      .then((r) => setPay(r.data))
+      .catch(() => setPay({ error: true }));
+  }, [eventId, reg.id, reg.stripe_session_id]);
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const copySession = () => {
+    navigator.clipboard.writeText(reg.stripe_session_id).catch(() => {});
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <button type="button" aria-label="Cerrar" onClick={onClose} className="absolute inset-0 bg-gray-900/30 backdrop-blur-[2px]"/>
+      <aside className="relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl animate-yb-sheet">
+        <div className="flex items-start gap-3 border-b border-gray-100 p-6">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-lg font-bold text-violet-700">
+            {reg.name?.[0]?.toUpperCase() ?? '?'}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-lg font-bold text-gray-900">{reg.name}</h3>
+            <a href={`mailto:${reg.email}`} className="truncate text-sm text-violet-600 hover:underline">{reg.email}</a>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"><X size={18}/></button>
+        </div>
+
+        <div className="space-y-6 p-6">
+          {/* Estado rápido */}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {[
+              [CreditCard, 'Pago',       <PayBadge r={reg}/>],
+              [QrCode,     'Entrada',    reg.checked_in ? <span className="text-xs font-semibold text-emerald-600">✓ Entró</span> : <span className="text-xs text-gray-400">Aún no</span>],
+              [Award,      'Constancia', reg.has_certificate ? <span className="text-xs font-semibold text-emerald-600">✓ Lista</span> : <span className="text-xs text-gray-400">Pendiente</span>],
+            ].map(([Icon, label, value]) => (
+              <div key={label} className="rounded-xl border border-gray-200 px-2 py-3">
+                <Icon size={15} className="mx-auto text-gray-400"/>
+                <div className="mt-1 text-[11px] text-gray-400">{label}</div>
+                <div className="mt-1">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <section>
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">Inscripción</h4>
+            <div className="divide-y divide-gray-100">
+              <Detail label="Plan">{reg.ticket_type_name || 'General'}</Detail>
+              <Detail label="Fecha">{fmtDate(reg.created_at)}</Detail>
+              {reg.instrument && <Detail label="Instrumento">{reg.instrument}</Detail>}
+              {reg.checked_in_at && <Detail label="Entró">{new Date(reg.checked_in_at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}</Detail>}
+              {reg.notes && <Detail label="Notas">{reg.notes}</Detail>}
+            </div>
+          </section>
+
+          {/* Pago en Stripe */}
+          <section>
+            <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400"><CreditCard size={12}/> Pago en Stripe</h4>
+            {!reg.stripe_session_id ? (
+              <div className="rounded-xl border border-dashed border-gray-200 px-4 py-4 text-sm text-gray-400">
+                {payState(reg) === 'gratis' ? 'Inscripción gratuita, no hubo pago.' : reg.paid ? 'Marcado como pagado (sin pago en Stripe).' : 'Todavía no ha pagado.'}
+              </div>
+            ) : pay === null ? (
+              <div className="h-32 animate-pulse rounded-xl bg-gray-100"/>
+            ) : pay.error || pay.stripe_unavailable ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                {pay.stripe_unavailable ? 'Stripe no está configurado en el servidor.' : 'No se pudo consultar Stripe ahora.'}
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-gray-200">
+                <div className="bg-gradient-to-br from-gray-900 to-gray-700 px-5 py-4 text-white">
+                  <div className="text-xs text-white/60">Total cobrado</div>
+                  <div className="mt-0.5 text-2xl font-bold">{fmtMXN(pay.amount_cents ?? 0)} <span className="text-sm font-medium uppercase text-white/60">{pay.currency}</span></div>
+                  <div className="mt-2 flex items-center gap-2 text-xs">
+                    <span className={`rounded-full px-2 py-0.5 font-semibold ${pay.status === 'paid' ? 'bg-emerald-400/20 text-emerald-200' : 'bg-amber-400/20 text-amber-200'}`}>
+                      {pay.status === 'paid' ? 'Pagado' : pay.status === 'unpaid' ? 'Sin pagar' : pay.status}
+                    </span>
+                    {pay.refunded_cents > 0 && <span className="rounded-full bg-red-400/20 px-2 py-0.5 font-semibold text-red-200">Reembolsado {fmtMXN(pay.refunded_cents)}</span>}
+                  </div>
+                </div>
+                <div className="divide-y divide-gray-100 px-5">
+                  {pay.card && <Detail label="Tarjeta"><span className="capitalize">{pay.card.brand}</span> •••• {pay.card.last4}</Detail>}
+                  {pay.created && <Detail label="Fecha">{new Date(pay.created * 1000).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}</Detail>}
+                  {pay.email && <Detail label="Correo de pago">{pay.email}</Detail>}
+                  <Detail label="Sesión">
+                    <button type="button" onClick={copySession} className="inline-flex items-center gap-1 font-mono text-xs text-gray-500 hover:text-gray-800">
+                      {reg.stripe_session_id.slice(0, 14)}… {copied ? <CheckCheck size={12} className="text-emerald-600"/> : <Copy size={12}/>}
+                    </button>
+                  </Detail>
+                </div>
+                <div className="flex gap-2 border-t border-gray-100 bg-gray-50 p-3">
+                  {pay.receipt_url && (
+                    <a href={pay.receipt_url} target="_blank" rel="noopener noreferrer"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100"><Receipt size={13}/> Recibo</a>
+                  )}
+                  {pay.dashboard_url && (
+                    <a href={pay.dashboard_url} target="_blank" rel="noopener noreferrer"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#635BFF] py-2 text-xs font-semibold text-white hover:brightness-110"><ExternalLink size={13}/> Ver en Stripe</a>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {reg.ticket_token && (
+            <a href={`/ticket/${reg.ticket_token}`} target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-100 transition-colors">
+              <QrCode size={15}/> Ver su boleto QR
+            </a>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+};
+
+const FILTERS = [
+  { key: 'todos',     label: 'Todos',      test: () => true },
+  { key: 'pagado',    label: 'Pagados',    test: (r) => ['stripe', 'pagado'].includes(payState(r)) },
+  { key: 'pendiente', label: 'Pendientes', test: (r) => payState(r) === 'pendiente' },
+  { key: 'gratis',    label: 'Gratis',     test: (r) => payState(r) === 'gratis' },
+  { key: 'entraron',  label: 'Entraron',   test: (r) => r.checked_in },
+];
+
 const InscritosTab = ({ event, regs }) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('todos');
-  const pc = event?.price_cents ?? 0;
+  const [open,   setOpen]   = useState(null);
+
+  const paidRegs  = regs.filter(FILTERS[1].test);
+  const collected = paidRegs.reduce((sum, r) => sum + (r.price_cents ?? 0), 0);
 
   const exportCSV = () => {
-    const rows = [['Nombre','Correo','Instrumento','Pago','Fecha'],
-      ...regs.map(r => [r.name, r.email, r.instrument??'',
-        pc > 0 ? (r.paid ? 'Pagado' : 'Pendiente') : 'Gratuito',
+    const rows = [['Nombre','Correo','Plan','Instrumento','Pago','Monto','Sesión Stripe','Entró','Constancia','Fecha'],
+      ...regs.map(r => [r.name, r.email, r.ticket_type_name ?? 'General', r.instrument ?? '',
+        PAY_BADGE[payState(r)][1], r.price_cents ? r.price_cents / 100 : 0, r.stripe_session_id ?? '',
+        r.checked_in ? 'Sí' : 'No', r.has_certificate ? 'Sí' : 'No',
         new Date(r.created_at).toLocaleDateString('es-MX')])];
-    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}));
     a.download = `inscritos-${event?.slug??'evento'}.csv`; a.click();
   };
 
-  const filtered = regs.filter(r => {
-    const q = search.toLowerCase();
-    const ms = !q || r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q);
-    const mf = filter==='todos' ? true : filter==='pagado' ? r.paid : !r.paid;
-    return ms && mf;
-  });
+  const q = search.trim().toLowerCase();
+  const test = FILTERS.find((f) => f.key === filter).test;
+  const filtered = regs.filter(r => test(r) && (!q || `${r.name} ${r.email} ${r.ticket_type_name ?? ''}`.toLowerCase().includes(q)));
 
   return (
     <div className="space-y-4">
-      {/* Stats rápidas */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Resumen */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          { label:'Total inscritos', value: regs.length,                  color:'text-violet-600' },
-          { label:'Pagados',         value: regs.filter(r=>r.paid).length, color:'text-emerald-600' },
-          { label:'Pendientes',      value: pc>0 ? regs.filter(r=>!r.paid).length : '—', color:'text-amber-600' },
-          { label:'Recaudado',       value: pc>0 ? fmtMXN(regs.filter(r=>r.paid).length*pc) : '—', color:'text-emerald-600' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="rounded-2xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
-            <div className="text-xs text-gray-400">{label}</div>
-            <div className={`mt-1 text-xl font-bold ${color}`}>{value}</div>
+          { label: 'Alumnos inscritos', value: regs.length,                               icon: Users,      color: 'text-violet-600 bg-violet-50' },
+          { label: 'Pagos recibidos',   value: paidRegs.length,                           icon: CreditCard, color: 'text-emerald-600 bg-emerald-50' },
+          { label: 'Recaudado',         value: fmtMXN(collected),                         icon: DollarSign, color: 'text-emerald-600 bg-emerald-50' },
+          { label: 'Ya entraron',       value: regs.filter(r => r.checked_in).length,      icon: QrCode,     color: 'text-blue-600 bg-blue-50' },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}><Icon size={17}/></span>
+            <div className="min-w-0">
+              <div className="truncate text-xs text-gray-400">{label}</div>
+              <div className="text-xl font-bold text-gray-900">{value}</div>
+            </div>
           </div>
         ))}
       </div>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar…"
-              className="w-44 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-xs text-gray-700 outline-none focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-100 transition-all"/>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar alumno…"
+              className="w-48 rounded-xl border border-gray-200 bg-gray-50 py-2 pl-8 pr-3 text-xs text-gray-700 outline-none focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-100 transition-all"/>
           </div>
-          {pc > 0 && (
-            <select value={filter} onChange={e=>setFilter(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-gray-50 py-2 pl-3 pr-7 text-xs text-gray-600 outline-none focus:border-violet-400 transition-all">
-              <option value="todos">Todos</option>
-              <option value="pagado">Pagado</option>
-              <option value="pendiente">Pendiente</option>
-            </select>
-          )}
+          <div className="flex flex-wrap gap-1">
+            {FILTERS.map(f => (
+              <button key={f.key} type="button" onClick={() => setFilter(f.key)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${filter === f.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
         {regs.length > 0 && (
           <button onClick={exportCSV} className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 hover:bg-gray-50 transition-colors shadow-sm">
@@ -410,38 +693,39 @@ const InscritosTab = ({ event, regs }) => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Nombre</th>
-                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 hidden sm:table-cell">Correo</th>
-                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 hidden md:table-cell">Instrumento</th>
-                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Pago</th>
+                {['Alumno', 'Plan', 'Pago', 'Entrada', 'Constancia', 'Fecha'].map((h, i) => (
+                  <th key={h} className={`px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 ${['', 'hidden md:table-cell', '', 'hidden sm:table-cell', 'hidden lg:table-cell', 'hidden lg:table-cell'][i]}`}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50/70 transition-colors">
+                <tr key={r.id} onClick={() => setOpen(r)} className="cursor-pointer hover:bg-violet-50/40 transition-colors">
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-bold text-violet-700">
                         {r.name?.[0]?.toUpperCase()??'?'}
                       </div>
-                      <span className="text-sm font-medium text-gray-900">{r.name}</span>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-gray-900">{r.name}</div>
+                        <div className="truncate text-xs text-gray-400">{r.email}</div>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-gray-500 hidden sm:table-cell">{r.email}</td>
-                  <td className="px-5 py-3.5 text-sm text-gray-500 hidden md:table-cell">{r.instrument||<span className="text-gray-300">—</span>}</td>
-                  <td className="px-5 py-3.5">
-                    {pc > 0
-                      ? r.paid
-                        ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">✓ Pagado</span>
-                        : <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">Pendiente</span>
-                      : <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700">Gratuito</span>}
-                  </td>
+                  <td className="px-5 py-3.5 text-sm text-gray-500 hidden md:table-cell">{r.ticket_type_name || 'General'}</td>
+                  <td className="px-5 py-3.5"><PayBadge r={r}/></td>
+                  <td className="px-5 py-3.5 text-xs hidden sm:table-cell">{r.checked_in ? <span className="font-semibold text-emerald-600">✓ Entró</span> : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-5 py-3.5 text-xs hidden lg:table-cell">{r.has_certificate ? <span className="inline-flex items-center gap-1 font-semibold text-emerald-600"><Award size={12}/> Lista</span> : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-5 py-3.5 text-xs text-gray-400 hidden lg:table-cell whitespace-nowrap">{fmtDate(r.created_at)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {filtered.length === 0 && <p className="py-10 text-center text-sm text-gray-400">Nadie coincide con ese filtro.</p>}
         </div>
       )}
+
+      {open && <RegDrawer eventId={event.id} reg={open} onClose={() => setOpen(null)}/>}
     </div>
   );
 };
@@ -688,8 +972,9 @@ const EventEditor = ({ event: init, onBack, onCreate }) => {
   };
 
   const TABS = [
-    { key:'detalles',   label:'Detalles',  count: null },
-    { key:'inscritos',  label:'Inscritos', count: regs.length },
+    { key:'detalles',   label:'Detalles',     count: null },
+    { key:'vista',      label:'Vista previa', count: null },
+    { key:'inscritos',  label:'Inscritos',    count: regs.length },
     { key:'planes',     label:'Planes',    count: null },
     { key:'concursos',  label:'Concursos', count: null },
     { key:'noticias',   label:'Noticias',  count: null },
@@ -723,20 +1008,20 @@ const EventEditor = ({ event: init, onBack, onCreate }) => {
               className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 hover:bg-gray-50 transition-colors shadow-sm">
               {copied ? <><CheckCheck size={12} className="text-emerald-600"/>Copiado</> : <><Copy size={12}/>Copiar link</>}
             </button>
-            <a href={`/e/${event.slug}`} target="_blank" rel="noopener noreferrer"
+            <button onClick={() => setTab('vista')}
               className="flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-100 transition-colors">
-              <ExternalLink size={12}/> Ver página
-            </a>
+              <Eye size={12}/> Ver página
+            </button>
           </div>
         )}
       </div>
 
       {/* Tabs */}
       {event?.id && (
-        <div className="flex items-center gap-1 border-b border-gray-200">
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-gray-200 [scrollbar-width:none]">
           {TABS.map(({ key, label, count }) => (
             <button key={key} onClick={() => setTab(key)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab===key ? 'border-violet-500 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${tab===key ? 'border-violet-500 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
               {label}
               {count !== null && (
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${tab===key ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -834,6 +1119,9 @@ const EventEditor = ({ event: init, onBack, onCreate }) => {
           )}
         </div>
       )}
+
+      {/* ── Tab: Vista previa ── */}
+      {tab === 'vista' && event?.id && <VistaTab event={event} onGo={setTab}/>}
 
       {/* ── Tab: Inscritos ── */}
       {tab === 'inscritos' && event?.id && <InscritosTab event={event} regs={regs}/>}

@@ -147,9 +147,19 @@ router.put('/users/:id/role', requireSuperAdmin, async (req, res) => {
   const VALID_ROLES = ['student', 'admin', 'super_admin'];
   if (!VALID_ROLES.includes(role))
     return res.status(400).json({ error: 'Rol no válido' });
+  // Evita quedarse fuera: nadie cambia su propio rol ni se quita el último super admin
+  if (req.params.id === req.user.id)
+    return res.status(400).json({ error: 'No puedes cambiar tu propio rol' });
+  const { data: target } = await sb.from('user_profiles').select('role').eq('id', req.params.id).maybeSingle();
+  if (!target) return res.status(404).json({ error: 'Usuario no encontrado' });
+  if (target.role === 'super_admin' && role !== 'super_admin') {
+    const { count } = await sb.from('user_profiles').select('id', { count: 'exact', head: true }).eq('role', 'super_admin');
+    if ((count ?? 0) <= 1) return res.status(400).json({ error: 'Debe quedar al menos un super admin' });
+  }
   const { data, error } = await sb
-    .from('user_profiles').update({ role }).eq('id', req.params.id).select().single();
-  if (error) return res.status(500).json({ error: error.message });
+    .from('user_profiles').update({ role }).eq('id', req.params.id).select('id, role, created_at').single();
+  if (error) return res.status(500).json({ error: 'No se pudo actualizar el rol' });
+  console.info(`[roles] ${req.user.email} cambió ${req.params.id}: ${target.role} → ${role}`);
   res.json(data);
 });
 

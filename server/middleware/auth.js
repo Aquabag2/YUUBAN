@@ -69,7 +69,7 @@ const requireAdmin = async (req, res, next) => {
       req.role = profile.role;
     }
 
-    req.user = user;
+    req.user = { ...user, role: req.role ?? 'admin' };
     next();
   } catch (err) {
     console.error('[requireAdmin] exception:', err.message);
@@ -92,7 +92,8 @@ const requireSuperAdmin = async (req, res, next) => {
         return res.status(403).json({ error: 'Acceso denegado: se requiere super_admin' });
     }
 
-    req.user = user;
+    req.role = 'super_admin';
+    req.user = { ...user, role: 'super_admin' };
     next();
   } catch (err) {
     console.error('[requireSuperAdmin] exception:', err.message);
@@ -100,4 +101,14 @@ const requireSuperAdmin = async (req, res, next) => {
   }
 };
 
-module.exports = { requireAuth, requireAdmin, requireSuperAdmin };
+// Usar después de requireAdmin: true si el usuario es dueño del evento o super_admin
+const canManageEvent = async (req, eventId) => {
+  if (!supabase) return true;
+  if (req.role === 'super_admin') return true;
+  if (!eventId) return false;
+  const { data } = await supabase.from('events')
+    .select('id').eq('id', eventId).eq('user_id', req.user.id).maybeSingle();
+  return !!data;
+};
+
+module.exports = { requireAuth, requireAdmin, requireSuperAdmin, canManageEvent };

@@ -11,6 +11,7 @@ const superRouter    = require('./routes/super');
 const paymentsRouter      = require('./routes/payments');
 const certificatesRouter  = require('./routes/certificates');
 const postsRouter         = require('./routes/posts');
+const authRouter          = require('./routes/auth');
 
 const app  = express();
 const PORT = process.env.PORT || 8000;
@@ -22,11 +23,18 @@ app.set('trust proxy', 1);
 
 // Cabeceras de seguridad HTTP (previene XSS, clickjacking, sniffing, etc.)
 app.use(helmet());
+app.disable('x-powered-by');
+
+// Sin Supabase el servidor corre en modo demo (todo abierto); en producción eso nunca debe pasar
+if (process.env.NODE_ENV === 'production' && !require('./lib/supabase')) {
+  console.error('⚠  NODE_ENV=production sin Supabase configurado: la API queda bloqueada');
+  app.use('/api', (_req, res) => res.status(503).json({ error: 'Servicio no configurado' }));
+}
 
 // CORS estricto: solo acepta peticiones del frontend oficial
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
@@ -37,7 +45,7 @@ app.use(rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiadas solicitudes. Intenta en 15 minutos.' },
-  skip: (req) => req.path === '/health', // el health check no cuenta
+  skip: (req) => req.path === '/health' || req.path === '/api/stripe/webhook', // no cuentan
 }));
 
 // Rate limiting más estricto para login/registro (previene fuerza bruta)
@@ -48,8 +56,27 @@ const authLimiter = rateLimit({
 });
 app.use('/api/e/:slug/checkout',  authLimiter);
 app.use('/api/e/:slug/register',  authLimiter);
+app.use('/api/auth',              authLimiter);
+
+// Webhook de Stripe: necesita el body crudo para validar la firma, va antes de express.json()
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), paymentsRouter.webhook);
 
 app.use(express.json({ limit: '1mb' })); // limita tamaño del body
+
+// En producción los errores 5xx no exponen detalles internos (tablas, columnas, claves)
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+  app.use((req, res, next) => {
+    const json = res.json.bind(res);
+    res.json = (body) => {
+      if (res.statusCode >= 500 && body && typeof body.error === 'string') {
+        console.error(`[${req.method} ${req.path}]`, body.error);
+        return json({ ...body, error: 'Ocurrió un error en el servidor. Intenta de nuevo.' });
+      }
+      return json(body);
+    };
+    next();
+  });
+}
 
 // Logger solo en desarrollo
 if (process.env.NODE_ENV !== 'production') {
@@ -59,58 +86,6 @@ if (process.env.NODE_ENV !== 'production') {
 // ── Rutas ─────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ ok: true, name: 'yuuban-server' }));
 
-// Diagnóstico completo de auth
-app.get('/health/auth', async (req, res) => {
-  const sb = require('./lib/supabase');
-  const token = req.headers.authorization?.split(' ')[1];
-
-  const info = {
-    supabase_url_set:     !!process.env.SUPABASE_URL,
-    service_key_set:      !!process.env.SUPABASE_SERVICE_KEY,
-    jwt_secret_set:       !!process.env.SUPABASE_JWT_SECRET,
-    supabase_url_preview: process.env.SUPABASE_URL?.slice(0, 40) ?? null,
-    supabase_client:      sb ? 'ok' : 'no inicializado',
-  };
-
-  if (!token) return res.json({ ...info, token: 'no enviado' });
-
-  // Decodifica sin verificar para ver si el payload es legible
-  let decoded = null;
-  try {
-    const jwt = require('jsonwebtoken');
-    decoded = jwt.decode(token);
-  } catch {}
-
-  // Intenta getUser con service key
-  let supabaseResult = null;
-  if (sb) {
-    const { data, error } = await sb.auth.getUser(token);
-    supabaseResult = { ok: !error && !!data?.user, error: error?.message ?? null, email: data?.user?.email ?? null };
-  }
-
-  // Intenta verificar con JWT secret
-  let jwtResult = null;
-  if (process.env.SUPABASE_JWT_SECRET) {
-    try {
-      const jwt = require('jsonwebtoken');
-      const payload = jwt.verify(token, process.env.SUPABASE_JWT_SECRET, { algorithms: ['HS256'] });
-      jwtResult = { ok: true, sub: payload.sub, email: payload.email };
-    } catch (e) {
-      jwtResult = { ok: false, error: e.message };
-    }
-  }
-
-  res.json({
-    ...info,
-    token_prefix: token.slice(0, 30) + '...',
-    token_decoded_sub: decoded?.sub ?? null,
-    token_exp: decoded?.exp ? new Date(decoded.exp * 1000).toISOString() : null,
-    token_expired: decoded?.exp ? decoded.exp < Date.now() / 1000 : null,
-    supabase_getUser: supabaseResult,
-    jwt_secret_verify: jwtResult,
-  });
-});
-
 app.use('/api',         eventsRouter);
 app.use('/api/ticket',  ticketsRouter);
 app.use('/api',         adminRouter);
@@ -118,28 +93,21 @@ app.use('/api/super',   superRouter);
 app.use('/api',         paymentsRouter);
 app.use('/api',         certificatesRouter);
 app.use('/api',         postsRouter);
+app.use('/api/auth',    authRouter);
 
 // ── Perfil del usuario autenticado ────────────────────────────────────────────
 const { requireAuth } = require('./middleware/auth');
 const sb = require('./lib/supabase');
 app.get('/api/profile', requireAuth, async (req, res) => {
   try {
-    if (!sb) {
-      console.log('[profile] supabase no configurado, devolviendo admin');
-      return res.json({ id: req.user.id, role: 'admin' });
-    }
-    console.log('[profile] querying user_id:', req.user.id);
+    if (!sb) return res.json({ id: req.user.id, role: 'admin' }); // modo demo local
     const { data, error } = await sb
       .from('user_profiles').select('id, role, created_at').eq('id', req.user.id).maybeSingle();
     if (error) {
       console.error('[profile] SELECT error:', error.message, error.code, error.details);
       return res.json({ id: req.user.id, role: 'student' });
     }
-    if (!data) {
-      console.log('[profile] sin fila para user_id:', req.user.id);
-      return res.json({ id: req.user.id, role: 'student' });
-    }
-    console.log('[profile] rol encontrado:', data.role, 'para user_id:', req.user.id);
+    if (!data) return res.json({ id: req.user.id, role: 'student' });
     res.json(data);
   } catch (err) {
     console.error('[profile] exception:', err.message);

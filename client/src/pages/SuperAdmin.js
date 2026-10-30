@@ -8,6 +8,14 @@ import {
 } from 'lucide-react';
 import CertificateEditor from './CertificateEditor';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+
+// Qué puede hacer cada rol (se muestra en Usuarios y permisos)
+const ROLE_INFO = {
+  student:     { label: 'Alumno',        text: 'Se inscribe a festivales y ve su inicio, horario, boletos y constancias.' },
+  admin:       { label: 'Administrador', text: 'Crea y gestiona sus propios eventos, inscritos, noticias y constancias.' },
+  super_admin: { label: 'Super admin',   text: 'Control total: todos los eventos y clientes, y puede dar o quitar permisos.' },
+};
 
 const STATUS_CONFIG = {
   Activo:  { icon: CheckCircle2, badge: 'border-yb-rule bg-white text-yb-forest' },
@@ -118,6 +126,7 @@ const SuperAdmin = () => {
   const [usersSearch, setUsersSearch]= useState('');
   const [roleEdits,   setRoleEdits]  = useState({}); // { [userId]: role }
   const [savingRole,  setSavingRole] = useState({}); // { [userId]: bool }
+  const { user: me } = useAuth();
 
   const loadAll = () => {
     api.get('/super/metrics').then((r) => setMetrics(r.data)).catch(() => {});
@@ -138,6 +147,9 @@ const SuperAdmin = () => {
   useEffect(() => { loadAll(); loadUsers(); }, []);
 
   const saveRole = async (userId) => {
+    const target = users.find(u => u.id === userId);
+    if (roleEdits[userId] === 'super_admin' &&
+        !window.confirm(`¿Dar control total (super admin) a ${target?.email ?? 'este usuario'}?`)) return;
     setSavingRole(p => ({ ...p, [userId]: true }));
     try {
       await api.put(`/super/users/${userId}/role`, { role: roleEdits[userId] });
@@ -663,6 +675,15 @@ const SuperAdmin = () => {
           </div>
         </div>
 
+        <div className="grid gap-px border-b border-yb-rule bg-yb-rule sm:grid-cols-3">
+          {Object.entries(ROLE_INFO).map(([key, { label, text }]) => (
+            <div key={key} className="bg-white px-6 py-4">
+              <div className="text-xs font-semibold text-yb-ink">{label} <span className="ml-1 font-normal text-yb-ink-muted">· {users.filter(u => u.role === key).length}</span></div>
+              <p className="mt-1 text-xs leading-relaxed text-yb-ink-muted">{text}</p>
+            </div>
+          ))}
+        </div>
+
         {usersLoad && users.length === 0 ? (
           <div className="space-y-2 p-6">
             {[1,2,3].map(i => <div key={i} className="h-12 animate-pulse rounded-[3px] bg-yb-paper"/>)}
@@ -691,6 +712,7 @@ const SuperAdmin = () => {
                   })
                   .map((u, i, arr) => {
                     const changed = roleEdits[u.id] !== u.role;
+                    const isMe = u.id === me?.id;
                     return (
                       <tr key={u.id} className={`hover:bg-yb-paper transition-colors ${i < arr.length - 1 ? 'border-b border-yb-rule' : ''}`}>
                         <td className="px-6 py-3.5">
@@ -699,7 +721,7 @@ const SuperAdmin = () => {
                               {u.email?.charAt(0)?.toUpperCase() ?? '?'}
                             </div>
                             <div className="min-w-0">
-                              <div className="truncate text-sm font-medium text-yb-ink max-w-xs">{u.email ?? '—'}</div>
+                              <div className="truncate text-sm font-medium text-yb-ink max-w-xs">{u.email ?? '—'}{isMe && <span className="ml-2 rounded-full bg-yb-ink px-2 py-0.5 text-[10px] font-semibold text-yb-paper">Tú</span>}</div>
                               <div className="text-xs text-yb-ink-muted">{u.id.slice(0, 8)}…</div>
                             </div>
                           </div>
@@ -710,15 +732,15 @@ const SuperAdmin = () => {
                         <td className="px-4 py-3.5">
                           <select
                             value={roleEdits[u.id] ?? u.role}
+                            disabled={isMe}
+                            title={isMe ? 'No puedes cambiar tu propio rol' : undefined}
                             onChange={e => setRoleEdits(p => ({ ...p, [u.id]: e.target.value }))}
-                            className={`rounded-[3px] border px-3 py-1.5 text-xs font-medium outline-none transition-all focus:ring-2 focus:ring-yb-rule ${
+                            className={`rounded-[3px] border px-3 py-1.5 text-xs font-medium outline-none transition-all focus:ring-2 focus:ring-yb-rule disabled:cursor-not-allowed disabled:opacity-60 ${
                               roleEdits[u.id] === 'super_admin' ? 'border-yb-ink bg-white text-yb-ink focus:border-yb-ink' :
                               roleEdits[u.id] === 'admin'       ? 'border-yb-rule bg-yb-paper text-yb-ink focus:border-yb-rule' :
                                                                    'border-yb-rule bg-yb-paper text-yb-ink-muted focus:border-yb-rule'
                             }`}>
-                            <option value="student">student</option>
-                            <option value="admin">admin</option>
-                            <option value="super_admin">super_admin</option>
+                            {Object.entries(ROLE_INFO).map(([key, { label }]) => <option key={key} value={key}>{label}</option>)}
                           </select>
                         </td>
                         <td className="px-4 py-3.5">

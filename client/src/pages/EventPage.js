@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { Calendar, MapPin, Clock, CheckCircle2, Share2, Ticket, CreditCard, XCircle, ChevronRight, Check } from 'lucide-react';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Calendar, MapPin, Clock, CheckCircle2, Share2, Ticket, CreditCard, XCircle, ChevronRight, Check, Eye, Smartphone, ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { useOverview, invalidateOverview } from '../components/StudentPanel';
+import { isEmbedded } from '../lib/preview';
 
-const EMPTY_FORM = { name:'', email:'', instrument:'', notes:'' };
+const EMPTY_FORM = { name:'' };
 const fmtPrice = (c) => new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:0}).format(c/100);
 
 const inputCls = 'w-full rounded-[3px] border border-yb-rule bg-white px-3.5 py-3 text-[15px] text-yb-ink placeholder-yb-ink-muted outline-none transition focus:border-yb-ink';
@@ -39,6 +42,7 @@ const TypeSelector = ({ types, selected, onSelect }) => (
 
 const EventPage = () => {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [event,       setEvent]       = useState(null);
@@ -47,10 +51,18 @@ const EventPage = () => {
   const [loading,     setLoading]     = useState(true);
   const [notFound,    setNotFound]    = useState(false);
 
-  const [form,        setForm]        = useState(EMPTY_FORM);
+  const { user } = useAuth();
+  const [form,        setForm]        = useState(() => ({ ...EMPTY_FORM, name: user?.user_metadata?.full_name ?? '' }));
   const [submitting,  setSubmitting]  = useState(false);
   const [ticketUrl,   setTicketUrl]   = useState('');
   const [done,        setDone]        = useState(false);
+
+  // Si ya tiene boleto para este evento, se muestra directo (no se vuelve a inscribir)
+  const overview = useOverview();
+  useEffect(() => {
+    const mine = overview?.tickets?.find((t) => t.event.slug === slug);
+    if (mine) { setTicketUrl(`/ticket/${mine.ticket_token}`); setDone(true); }
+  }, [overview, slug]);
   const [formError,   setFormError]   = useState('');
 
   // Tipo seleccionado
@@ -83,11 +95,11 @@ const EventPage = () => {
     if (paymentParam === 'success' && sessionId) {
       setConfirming(true);
       api.post(`/e/${slug}/confirm-payment`, { session_id: sessionId })
-        .then(({ data }) => { setTicketUrl(data.ticket_url); setDone(true); })
+        .then(() => { invalidateOverview(); navigate(`/dashboard?bienvenida=${encodeURIComponent(slug)}`); })
         .catch(err => setFormError(err.response?.data?.error ?? 'Error al confirmar el pago.'))
         .finally(() => setConfirming(false));
     }
-  }, [paymentParam, sessionId, slug]);
+  }, [paymentParam, sessionId, slug, navigate]);
 
   // Precio efectivo = ticket type si hay, si no evento
   const hasTypes   = ticketTypes.length > 0;
@@ -110,7 +122,7 @@ const EventPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
-    if (!form.name.trim() || !form.email.trim()) { setFormError('Nombre y correo son obligatorios.'); return; }
+    if (!form.name.trim()) { setFormError('Escribe tu nombre completo.'); return; }
     setSubmitting(true);
     try {
       const payload = {
@@ -122,9 +134,9 @@ const EventPage = () => {
         const { data } = await api.post(`/e/${slug}/checkout`, payload);
         window.location.href = data.url;
       } else {
-        const { data } = await api.post(`/e/${slug}/register`, payload);
-        setTicketUrl(data.ticket_url ?? '');
-        setDone(true); setForm(EMPTY_FORM);
+        await api.post(`/e/${slug}/register`, payload);
+        invalidateOverview();
+        navigate(`/dashboard?bienvenida=${encodeURIComponent(slug)}`);
       }
     } catch (err) {
       const e409 = err.response?.status === 409;
@@ -165,6 +177,19 @@ const EventPage = () => {
 
   return (
     <div className="min-h-screen bg-yb-paper font-yb-sans text-yb-ink">
+
+      {/* Solo para quien administra el evento */}
+      {event.can_manage && !isEmbedded() && (
+        <div className="flex h-11 items-center gap-3 bg-yb-ink px-4 text-xs text-yb-paper sm:text-sm">
+          <Eye size={15} className="shrink-0 text-yb-helecho" />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="font-semibold">Vista de invitado</span>
+            {!event.is_published && <span className="ml-2 rounded-full bg-yb-laton px-2 py-0.5 text-[11px] font-semibold text-yb-ink">Borrador: solo tú lo ves</span>}
+          </span>
+          <Link to={`/vista-alumno/${slug}`} className="hidden items-center gap-1.5 font-semibold text-yb-helecho hover:underline sm:flex"><Smartphone size={14} /> Inicio del alumno</Link>
+          <Link to="/vistas" className="flex shrink-0 items-center gap-1.5 rounded-full bg-yb-paper/10 px-3 py-1 font-semibold hover:bg-yb-paper/20"><ArrowLeft size={14} /> Salir</Link>
+        </div>
+      )}
 
       {/* Barra superior */}
       <header className="sticky top-0 z-40 border-b border-yb-rule bg-yb-paper/90 backdrop-blur">
@@ -246,21 +271,26 @@ const EventPage = () => {
                   <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-yb-forest text-white"><CheckCircle2 size={26} /></span>
                   <h2 className="mt-5 font-yb-serif text-[32px] leading-tight">Ya estás dentro.</h2>
                   {selectedType && <p className="mt-1 text-sm text-yb-ink-muted">Como {selectedType.name}</p>}
-                  <p className="mt-2 text-[15px] text-yb-ink-muted">Tu boleto digital está listo. Muéstralo en la entrada.</p>
+                  <p className="mt-2 text-[15px] text-yb-ink-muted">Tu lugar en {event?.title ?? 'el festival'} está confirmado.</p>
                   {ticketUrl && (
                     <Link to={ticketUrl} className={`${primaryBtn} mt-6`}><Ticket size={16} /> Ver mi boleto QR</Link>
                   )}
-                  <div className="mt-6 border-t border-yb-rule pt-5 text-left">
-                    <p className="text-sm font-semibold">Sigue el festival desde tu cuenta</p>
-                    <p className="mt-1 text-sm text-yb-ink-muted">Noticias, tus clases y tus resultados en un solo lugar.</p>
-                    <Link to="/login" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline decoration-1 underline-offset-4 hover:text-yb-forest">
-                      Entrar o crear cuenta <ChevronRight size={14} />
-                    </Link>
-                  </div>
-                  <button type="button" onClick={() => { setDone(false); setTicketUrl(''); setPaymentMsg(''); setSelectedType(null); setTypeConfirmed(false); }}
-                    className="mt-5 text-xs text-yb-ink-muted underline underline-offset-2 hover:text-yb-ink">
-                    Inscribir a otra persona
-                  </button>
+                  <Link to="/dashboard"
+                    className="mt-3 flex w-full items-center justify-center gap-1 rounded-[3px] border border-yb-rule py-3.5 text-[15px] font-semibold transition-colors hover:border-yb-ink">
+                    Ir a mi inicio <ChevronRight size={15} />
+                  </Link>
+                  <ol className="mt-7 space-y-4 border-t border-yb-rule pt-6 text-left">
+                    {[
+                      ['Revisa tu correo', `Te mandamos tu boleto a ${user?.email ?? 'tu correo'}.`],
+                      ['Sigue las noticias', 'Anuncios, horarios y resultados del festival llegan a tu inicio.'],
+                      ['Llega y muestra tu QR', 'En la entrada escanean tu boleto y pasas en segundos.'],
+                    ].map(([t, d], i) => (
+                      <li key={t} className="flex gap-3">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-yb-ink text-xs font-semibold text-yb-paper">{i + 1}</span>
+                        <div><div className="text-sm font-semibold">{t}</div><div className="text-sm text-yb-ink-muted">{d}</div></div>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
 
               ) : hasTypes && (!selectedType || !typeConfirmed) ? (
@@ -296,10 +326,13 @@ const EventPage = () => {
                     </div>
                   )}
 
+                  <div className="text-sm">
+                    <span className="text-xs font-medium text-yb-ink-muted">Tu boleto llegará a</span>
+                    <div className="mt-0.5 truncate font-medium">{user?.email}</div>
+                  </div>
+
                   {[
                     { key: 'name',       label: 'Nombre completo',     type: 'text',  placeholder: 'Ej. Ana García',       required: true,  auto: 'name' },
-                    { key: 'email',      label: 'Correo electrónico',  type: 'email', placeholder: 'tu@correo.com',        required: true,  auto: 'email' },
-                    { key: 'instrument', label: 'Instrumento o área',  type: 'text',  placeholder: 'Ej. Piano, guitarra',  required: false, auto: 'off' },
                   ].map(({ key, label, type, placeholder, required, auto }) => (
                     <label key={key} className="block">
                       <span className="mb-1.5 flex justify-between text-xs font-medium text-yb-ink-muted">
@@ -309,11 +342,6 @@ const EventPage = () => {
                         placeholder={placeholder} required={required} autoComplete={auto} className={inputCls} />
                     </label>
                   ))}
-                  <label className="block">
-                    <span className="mb-1.5 flex justify-between text-xs font-medium text-yb-ink-muted">Comentarios<span>Opcional</span></span>
-                    <textarea value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                      placeholder="¿Algo que debamos saber?" rows={3} className={`${inputCls} resize-none`} />
-                  </label>
 
                   {formError && <p className="text-sm text-red-700">{formError}</p>}
 

@@ -217,7 +217,7 @@ const TicketPage = () => {
             </button>
 
             {/* Botón constancia */}
-            {ticket.certificate_url && (
+            {ticket.has_certificate && (
               <a
                 href={`/api/certificates/download/${token}`}
                 target="_blank"

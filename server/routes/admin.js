@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const sb     = require('../lib/supabase');
 const MOCK   = require('../lib/mock');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const multer = require('multer');
 
 const pick = (obj, keys) =>
@@ -18,14 +18,14 @@ router.get('/schedule', async (_req, res) => {
 });
 
 // ── Flujo de trabajo ───────────────────────────────────────────────────────────
-router.get('/workflow', requireAuth, async (_req, res) => {
+router.get('/workflow', requireAdmin, async (_req, res) => {
   if (!sb) return res.json(MOCK.workflow);
   const { data, error } = await sb.from('workflow_items').select('*').order('time');
   if (error) { console.error('[workflow] GET error:', error.message); return res.json([]); }
   res.json(data ?? []);
 });
 
-router.post('/workflow', requireAuth, async (req, res) => {
+router.post('/workflow', requireAdmin, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
   const fields = pick(req.body, WORKFLOW_FIELDS);
   if (!fields.time || !fields.title)
@@ -35,7 +35,7 @@ router.post('/workflow', requireAuth, async (req, res) => {
   res.status(201).json(data);
 });
 
-router.put('/workflow/:id', requireAuth, async (req, res) => {
+router.put('/workflow/:id', requireAdmin, async (req, res) => {
   if (!sb) return res.json({ ok: true });
   const updates = pick(req.body, WORKFLOW_FIELDS);
   if (!Object.keys(updates).length) return res.status(400).json({ error: 'Sin campos válidos' });
@@ -45,7 +45,7 @@ router.put('/workflow/:id', requireAuth, async (req, res) => {
   res.json(data);
 });
 
-router.delete('/workflow/:id', requireAuth, async (req, res) => {
+router.delete('/workflow/:id', requireAdmin, async (req, res) => {
   if (!sb) return res.json({ ok: true });
   const { error } = await sb.from('workflow_items').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -60,7 +60,7 @@ router.get('/teachers', requireAuth, async (_req, res) => {
   res.json(data ?? []);
 });
 
-router.post('/teachers', requireAuth, async (req, res) => {
+router.post('/teachers', requireAdmin, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
   const { name, role, schedule } = req.body;
   if (!name) return res.status(400).json({ error: 'Se requiere nombre' });
@@ -81,7 +81,7 @@ const photoUpload = multer({
 
 const PHOTO_BUCKET = 'teacher-photos';
 
-router.post('/teachers/:id/photo', requireAuth, (req, res, next) => {
+router.post('/teachers/:id/photo', requireAdmin, (req, res, next) => {
   photoUpload.single('photo')(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message });
     next();
@@ -110,7 +110,7 @@ router.post('/teachers/:id/photo', requireAuth, (req, res, next) => {
   res.json(data);
 });
 
-router.delete('/teachers/:id', requireAuth, async (req, res) => {
+router.delete('/teachers/:id', requireAdmin, async (req, res) => {
   if (!sb) return res.json({ ok: true });
   const { error } = await sb.from('teachers').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -118,14 +118,14 @@ router.delete('/teachers/:id', requireAuth, async (req, res) => {
 });
 
 // ── Alumnos ────────────────────────────────────────────────────────────────────
-router.get('/students', requireAuth, async (_req, res) => {
+router.get('/students', requireAdmin, async (_req, res) => {
   if (!sb) return res.json(MOCK.students);
   const { data, error } = await sb.from('students').select('*').order('name');
   if (error) { console.error('[students] GET error:', error.message); return res.json([]); }
   res.json(data ?? []);
 });
 
-router.post('/students', requireAuth, async (req, res) => {
+router.post('/students', requireAdmin, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
   const { name, instrument, status } = req.body;
   if (!name) return res.status(400).json({ error: 'Se requiere nombre' });
@@ -134,7 +134,7 @@ router.post('/students', requireAuth, async (req, res) => {
   res.status(201).json(data);
 });
 
-router.delete('/students/:id', requireAuth, async (req, res) => {
+router.delete('/students/:id', requireAdmin, async (req, res) => {
   if (!sb) return res.json({ ok: true });
   const { error } = await sb.from('students').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -165,7 +165,7 @@ router.get('/contests', requireAuth, async (_req, res) => {
 });
 
 // ── Registraciones de todos los eventos del admin ─────────────────────────────
-router.get('/registrations', requireAuth, async (req, res) => {
+router.get('/registrations', requireAdmin, async (req, res) => {
   if (!sb) return res.json([]);
   const { data: events } = await sb.from('events').select('id, title, slug').eq('user_id', req.user.id);
   if (!events?.length) return res.json([]);
@@ -179,7 +179,7 @@ router.get('/registrations', requireAuth, async (req, res) => {
   res.json((data ?? []).map(r => ({ ...r, event: eventMap[r.event_id] })));
 });
 
-router.patch('/registrations/:id', requireAuth, async (req, res) => {
+router.patch('/registrations/:id', requireAdmin, async (req, res) => {
   if (!sb) return res.json({ ok: true });
   const allowed = ['paid', 'checked_in'];
   const updates = pick(req.body, allowed);
@@ -204,7 +204,7 @@ router.get('/student-schedules', requireAuth, async (_req, res) => {
   res.json(data ?? []);
 });
 
-router.post('/student-schedules', requireAuth, async (req, res) => {
+router.post('/student-schedules', requireAdmin, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Sin Supabase' });
   const { student_id, teacher_id, time_slot, room } = req.body;
   if (!student_id || !time_slot) return res.status(400).json({ error: 'student_id y time_slot son requeridos' });
@@ -216,7 +216,7 @@ router.post('/student-schedules', requireAuth, async (req, res) => {
   res.status(201).json(data);
 });
 
-router.put('/student-schedules/:id', requireAuth, async (req, res) => {
+router.put('/student-schedules/:id', requireAdmin, async (req, res) => {
   if (!sb) return res.json({ ok: true });
   const { student_id, teacher_id, time_slot, room } = req.body;
   const updates = {};
@@ -232,7 +232,7 @@ router.put('/student-schedules/:id', requireAuth, async (req, res) => {
   res.json(data);
 });
 
-router.delete('/student-schedules/:id', requireAuth, async (req, res) => {
+router.delete('/student-schedules/:id', requireAdmin, async (req, res) => {
   if (!sb) return res.json({ ok: true });
   const { error } = await sb.from('student_schedules').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -240,14 +240,14 @@ router.delete('/student-schedules/:id', requireAuth, async (req, res) => {
 });
 
 // ── Mensajes ───────────────────────────────────────────────────────────────────
-router.get('/messages', requireAuth, async (_req, res) => {
+router.get('/messages', requireAdmin, async (_req, res) => {
   if (!sb) return res.json(MOCK.messages);
   const { data, error } = await sb.from('messages').select('*').order('created_at', { ascending: false });
   if (error) { console.error('[messages] GET error:', error.message); return res.json([]); }
   res.json(data ?? []);
 });
 
-router.delete('/messages/:id', requireAuth, async (req, res) => {
+router.delete('/messages/:id', requireAdmin, async (req, res) => {
   if (!sb) return res.json({ ok: true });
   const { error } = await sb.from('messages').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -255,7 +255,7 @@ router.delete('/messages/:id', requireAuth, async (req, res) => {
 });
 
 // ── Stats reales ───────────────────────────────────────────────────────────────
-router.get('/stats', requireAuth, async (_req, res) => {
+router.get('/stats', requireAdmin, async (_req, res) => {
   if (!sb) return res.json({ events: 0, tickets: 0, classes: 0, messages: 0 });
   const [evR, tickR, classR, msgR] = await Promise.all([
     sb.from('events').select('*', { count: 'exact', head: true }),

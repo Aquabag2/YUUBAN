@@ -88,7 +88,7 @@ const Landing = () => {
             <a href="#como-funciona" className="hidden text-yb-muted transition-colors hover:text-yb-text md:inline">Cómo funciona</a>
             <a href="#experiencia" className="hidden text-yb-muted transition-colors hover:text-yb-text md:inline">Experiencia</a>
             <Link to="/login" className="text-yb-muted transition-colors hover:text-yb-text">Iniciar sesión</Link>
-            <Link to="/login" className="rounded-[2px] bg-yb-helecho px-4 py-2.5 font-semibold text-yb-bg transition hover:brightness-105">Boletos</Link>
+            <Link to="/login?modo=registro" className="rounded-[2px] bg-yb-helecho px-4 py-2.5 font-semibold text-yb-bg transition hover:brightness-105">Boletos</Link>
           </div>
         </div>
       </nav>
@@ -114,7 +114,7 @@ const Landing = () => {
             </Reveal>
             <Reveal delay={240}>
               <div className="mt-10 flex flex-wrap items-center gap-6">
-                <PrimaryBtn to="/login">Conseguir mi boleto</PrimaryBtn>
+                <PrimaryBtn to="/login?modo=registro">Conseguir mi boleto</PrimaryBtn>
                 <a href="#como-funciona" className="text-[15px] font-semibold underline decoration-1 underline-offset-[6px] transition-colors hover:text-yb-helecho">
                   Ver cómo funciona →
                 </a>
@@ -245,7 +245,7 @@ const Landing = () => {
           </Reveal>
           <Reveal delay={120} className="md:justify-self-end">
             <p className="mb-8 max-w-xs text-yb-muted">Asegura tu lugar hoy. Tu boleto llega al instante a tu correo.</p>
-            <PrimaryBtn to="/login">Conseguir mi boleto</PrimaryBtn>
+            <PrimaryBtn to="/login?modo=registro">Conseguir mi boleto</PrimaryBtn>
           </Reveal>
         </div>
       </section>

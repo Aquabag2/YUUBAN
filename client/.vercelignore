@@ -1,0 +1,4 @@
+# Nunca subir claves a Vercel: las variables se configuran en el panel
+.env
+.env.*
+!.env.example

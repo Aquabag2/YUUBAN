@@ -2,10 +2,11 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import StudentShell from './StudentShell';
+import RoleSwitch from '../components/RoleSwitch';
 import {
   LayoutDashboard, Users, ShieldCheck, LogOut,
   GraduationCap, Megaphone, BookOpen, Home, ChevronLeft,
-  ChevronRight, Calendar, Menu, X, Trophy, Map, UserCheck,
+  ChevronRight, Calendar, Menu, X, Trophy, Map, UserCheck, Eye,
 } from 'lucide-react';
 
 // ── Navegación por rol ────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ const NAV = {
     { section: 'Gestión' },
     { to: '/admin',         label: 'Panel Admin',    icon: LayoutDashboard },
     { to: '/mi-evento',     label: 'Mi Evento',      icon: Calendar },
+    { to: '/vistas',        label: 'Vistas previas', icon: Eye },
     { to: '/maestros',      label: 'Maestros',       icon: Users },
     { to: '/coordinacion',  label: 'Coordinación',   icon: UserCheck },
     { section: 'Comunidad' },
@@ -41,6 +43,7 @@ const NAV = {
     { section: 'Gestión' },
     { to: '/admin',         label: 'Panel Admin',    icon: LayoutDashboard },
     { to: '/mi-evento',     label: 'Mi Evento',      icon: Calendar },
+    { to: '/vistas',        label: 'Vistas previas', icon: Eye },
     { to: '/maestros',      label: 'Maestros',       icon: Users },
     { to: '/coordinacion',  label: 'Coordinación',   icon: UserCheck },
     { section: 'Comunidad' },
@@ -61,6 +64,7 @@ const PAGE_NAMES = {
   '/dashboard':  'Dashboard',
   '/admin':      'Panel Admin',
   '/mi-evento':  'Mi Evento',
+  '/vistas':     'Vistas previas',
   '/maestros':   'Maestros',
   '/novedades':  'Novedades',
   '/cursos':     'Cursos',
@@ -217,6 +221,10 @@ const StaffLayout = () => {
                 <span className="hidden text-yb-rule sm:block">/</span>
                 <span className="truncate font-semibold text-yb-ink">{pageName}</span>
               </>}
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <span className="hidden text-xs text-yb-ink-muted lg:block">Entrar como</span>
+              <RoleSwitch />
             </div>
           </div>
         </header>

@@ -5,9 +5,15 @@ import api from '../lib/api';
 
 const AuthContext = createContext(null);
 
+// Admins pueden usar la app como alumno con su propia cuenta (se recuerda en este navegador)
+const STAFF = ['admin', 'super_admin'];
+const VIEW_KEY = 'yb-view-as';
+const readViewAs = () => { try { return localStorage.getItem(VIEW_KEY); } catch { return null; } };
+
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null);
-  const [profile, setProfile] = useState(null);
+  const [realProfile, setProfile] = useState(null);
+  const [viewAsPref, setViewAsPref] = useState(readViewAs);
   const [loading, setLoading] = useState(true);
   // true mientras el usuario entró con un link de recuperación y aún no cambia su contraseña
   const [recovering, setRecovering] = useState(isRecoveryLink);
@@ -61,11 +67,26 @@ export function AuthProvider({ children }) {
     }
   }, [recovering, pathname, navigate]);
 
+  // Modos a los que puede entrar cada rol real (nunca a uno mayor que el suyo)
+  const realRole = realProfile?.role;
+  const viewModes = realRole === 'super_admin' ? ['student', 'admin', 'super_admin']
+    : realRole === 'admin' ? ['student', 'admin'] : [];
+  const canSwitch = STAFF.includes(realRole);
+  const viewAs = viewModes.includes(viewAsPref) ? viewAsPref : realRole;
+  // El resto de la app solo mira profile.role: en modo alumno lo ve como 'student'
+  const profile = canSwitch && viewAs !== realRole ? { ...realProfile, role: viewAs } : realProfile;
+
+  const setViewAs = (mode) => {
+    try { localStorage.setItem(VIEW_KEY, mode); } catch {}
+    setViewAsPref(mode);
+    navigate(mode === 'super_admin' ? '/super' : '/dashboard', { replace: true });
+  };
+
   const signOut = () => supabase.auth.signOut();
   const finishRecovery = () => setRecovering(false);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, recovering, signOut, finishRecovery }}>
+    <AuthContext.Provider value={{ user, profile, realProfile, canSwitch, viewModes, viewAs, setViewAs, loading, recovering, signOut, finishRecovery }}>
       {children}
     </AuthContext.Provider>
   );

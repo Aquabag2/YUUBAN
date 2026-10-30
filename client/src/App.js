@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { WorkflowProvider } from './context/WorkflowContext';
@@ -22,6 +22,10 @@ import MisConcursos from './pages/MisConcursos';
 import Mapa from './pages/Mapa';
 import Coordinacion from './pages/Coordinacion';
 import Perfil from './pages/Perfil';
+import Vistas from './pages/Vistas';
+import StudentShell from './pages/StudentShell';
+import StudentHome from './pages/StudentHome';
+import { PreviewContext } from './lib/preview';
 
 // Root: Landing si no hay sesión, dashboard si sí hay
 const Root = () => {
@@ -37,6 +41,7 @@ const Root = () => {
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, profile, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -46,7 +51,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  // Después de entrar, regresa a donde iba (p. ej. la página de un evento)
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?modo=registro&next=${next}`} replace />;
+  }
 
   if (allowedRoles && !allowedRoles.includes(profile?.role)) {
     if (profile?.role === 'student')    return <Navigate to="/cursos"  replace />;
@@ -55,6 +64,12 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   return children;
+};
+
+// Inicio del alumno en modo vista previa para el evento :slug
+const StudentPreview = () => {
+  const { slug } = useParams();
+  return <PreviewContext.Provider value={slug}><StudentShell /></PreviewContext.Provider>;
 };
 
 function App() {
@@ -67,7 +82,7 @@ function App() {
           }} />
           <Routes>
             {/* ── Rutas completamente públicas (sin Layout, sin auth) ── */}
-            <Route path="/e/:slug"          element={<EventPage />} />
+            <Route path="/e/:slug"          element={<ProtectedRoute><EventPage /></ProtectedRoute>} />
             <Route path="/ticket/:token"    element={<TicketPage />} />
             <Route path="/checkin/:slug"    element={<CheckIn />} />
             <Route path="/login"            element={<Login />} />
@@ -75,6 +90,13 @@ function App() {
 
             {/* ── Root: Landing o dashboard según sesión ── */}
             <Route path="/" element={<Root />} />
+
+            {/* ── Vista previa del inicio del alumno (admins) ── */}
+            <Route path="/vista-alumno/:slug" element={
+              <ProtectedRoute allowedRoles={['admin', 'super_admin']}><StudentPreview /></ProtectedRoute>
+            }>
+              <Route index element={<StudentHome />} />
+            </Route>
 
             {/* ── App protegida con Layout ── */}
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -117,6 +139,12 @@ function App() {
               <Route path="flujo" element={
                 <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
                   <Flow />
+                </ProtectedRoute>
+              } />
+
+              <Route path="vistas" element={
+                <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
+                  <Vistas />
                 </ProtectedRoute>
               } />
 

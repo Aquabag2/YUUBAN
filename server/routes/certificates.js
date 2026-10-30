@@ -2,7 +2,7 @@ const router  = require('express').Router();
 const sb       = require('../lib/supabase');
 const PDFDoc   = require('pdfkit');
 const multer   = require('multer');
-const { requireAuth, requireSuperAdmin } = require('../middleware/auth');
+const { requireAdmin, canManageEvent } = require('../middleware/auth');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -15,7 +15,7 @@ const upload = multer({
 
 // ── GET /api/certificates/templates ───────────────────────────────────────────
 // Lista templates de la plataforma + los del cliente autenticado
-router.get('/certificates/templates', requireAuth, async (req, res) => {
+router.get('/certificates/templates', requireAdmin, async (req, res) => {
   if (!sb) return res.json([]);
   const { data, error } = await sb
     .from('certificate_templates')
@@ -30,7 +30,7 @@ router.get('/certificates/templates', requireAuth, async (req, res) => {
 
 // ── POST /api/certificates/templates ──────────────────────────────────────────
 // Sube un nuevo template (imagen PNG/JPG o PDF)
-router.post('/certificates/templates', requireAuth, upload.single('image'), async (req, res) => {
+router.post('/certificates/templates', requireAdmin, upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Imagen requerida' });
   if (!req.body.name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
   if (!sb) return res.status(503).json({ error: 'Supabase no configurado' });
@@ -48,8 +48,11 @@ router.post('/certificates/templates', requireAuth, upload.single('image'), asyn
     .from('certificate-templates')
     .getPublicUrl(path);
 
-  const fields      = req.body.fields      ? JSON.parse(req.body.fields)      : defaultFields();
-  const is_platform = req.body.is_platform === 'true';
+  let fields;
+  try { fields = req.body.fields ? JSON.parse(req.body.fields) : defaultFields(); }
+  catch { return res.status(400).json({ error: 'fields no es JSON válido' }); }
+  // Solo el super_admin publica plantillas para toda la plataforma
+  const is_platform = req.body.is_platform === 'true' && req.role === 'super_admin';
 
   const { data, error } = await sb
     .from('certificate_templates')
@@ -63,7 +66,7 @@ router.post('/certificates/templates', requireAuth, upload.single('image'), asyn
 
 // ── PUT /api/certificates/templates/:id/fields ────────────────────────────────
 // Guarda posiciones de campos del editor visual
-router.put('/certificates/templates/:id/fields', requireAuth, async (req, res) => {
+router.put('/certificates/templates/:id/fields', requireAdmin, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Supabase no configurado' });
   const { fields } = req.body;
   if (!Array.isArray(fields)) return res.status(400).json({ error: 'fields debe ser array' });
@@ -89,9 +92,14 @@ router.put('/certificates/templates/:id/fields', requireAuth, async (req, res) =
 
 // ── POST /api/certificates/event/:event_id/assign ─────────────────────────────
 // Asigna un template a un evento y activa constancias
-router.post('/certificates/event/:event_id/assign', requireAuth, async (req, res) => {
+router.post('/certificates/event/:event_id/assign', requireAdmin, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Supabase no configurado' });
   const { template_id } = req.body;
+  if (!(await canManageEvent(req, req.params.event_id))) return res.status(403).json({ error: 'No autorizado' });
+
+  const { data: tpl } = await sb.from('certificate_templates')
+    .select('id').eq('id', template_id).or(`is_platform.eq.true,created_by.eq.${req.user.id}`).maybeSingle();
+  if (!tpl) return res.status(400).json({ error: 'Template no válido' });
 
   const { error } = await sb
     .from('events')
@@ -104,7 +112,7 @@ router.post('/certificates/event/:event_id/assign', requireAuth, async (req, res
 
 // ── POST /api/certificates/generate/:registration_id ─────────────────────────
 // Genera el PDF de constancia para un inscrito
-router.post('/certificates/generate/:registration_id', requireAuth, async (req, res) => {
+router.post('/certificates/generate/:registration_id', requireAdmin, async (req, res) => {
   if (!sb) return res.status(503).json({ error: 'Supabase no configurado' });
 
   const { data: reg } = await sb
@@ -114,10 +122,13 @@ router.post('/certificates/generate/:registration_id', requireAuth, async (req, 
     .single();
 
   if (!reg) return res.status(404).json({ error: 'Inscripción no encontrada' });
+  if (!(await canManageEvent(req, reg.event?.id))) return res.status(403).json({ error: 'No autorizado' });
   if (!reg.event?.certificates_enabled)
     return res.status(400).json({ error: 'Las constancias no están activadas para este evento' });
-  if (reg.certificate_url)
-    return res.json({ ok: true, url: reg.certificate_url }); // ya generada
+  if (reg.certificate_url) {
+    const url = await signedCertificate(reg.id); // ya generada
+    if (url) return res.json({ ok: true, url });
+  }
 
   const { data: tpl } = await sb
     .from('certificate_templates')
@@ -157,11 +168,10 @@ router.post('/certificates/generate/:registration_id', requireAuth, async (req, 
 
   if (upErr) return res.status(500).json({ error: upErr.message });
 
-  const { data: { publicUrl } } = sb.storage.from('certificates').getPublicUrl(path);
+  // Se guarda la ruta, no un enlace público: el bucket es privado
+  await sb.from('registrations').update({ certificate_url: path }).eq('id', reg.id);
 
-  await sb.from('registrations').update({ certificate_url: publicUrl }).eq('id', reg.id);
-
-  res.json({ ok: true, url: publicUrl });
+  res.json({ ok: true, url: await signedCertificate(reg.id) });
 });
 
 // ── GET /api/certificates/download/:token ─────────────────────────────────────
@@ -171,17 +181,27 @@ router.get('/certificates/download/:token', async (req, res) => {
 
   const { data: reg } = await sb
     .from('registrations')
-    .select('certificate_url, name')
+    .select('id, certificate_url')
     .eq('ticket_token', req.params.token)
     .single();
 
   if (!reg) return res.status(404).json({ error: 'Ticket no encontrado' });
   if (!reg.certificate_url) return res.status(404).json({ error: 'Constancia no generada aún' });
 
-  res.redirect(reg.certificate_url);
+  const url = await signedCertificate(reg.id);
+  if (!url) return res.status(500).json({ error: 'No se pudo preparar la descarga' });
+  res.redirect(url);
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Enlace temporal (5 min) a la constancia en el bucket privado "certificates"
+async function signedCertificate(registrationId) {
+  const { data, error } = await sb.storage.from('certificates')
+    .createSignedUrl(`generated/${registrationId}.pdf`, 300, { download: 'constancia-yuuban.pdf' });
+  if (error) { console.error('[certificates] signed url:', error.message); return null; }
+  return data.signedUrl;
+}
 
 function defaultFields() {
   return [
